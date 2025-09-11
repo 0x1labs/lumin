@@ -1,0 +1,16 @@
+# SwiftPM
+.build/
+
+# macOS app bundle
+Lumin.app/
+
+# Xcode/Derived data (if opened in Xcode)
+DerivedData/
+xcuserdata/
+
+# macOS cruft
+.DS_Store
+
+# vscode
+.vscode
+
