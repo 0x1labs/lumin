@@ -5,6 +5,9 @@ import UserNotifications
 @main
 struct LuminApp: App {
     init() {
+        // Offer to move the app to Applications on first launch (if needed)
+        AutoMoveToApplications.moveIfNeeded()
+
         // Request notification authorization
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if granted {
