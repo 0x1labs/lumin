@@ -1,8 +1,12 @@
 # SwiftPM
 .build/
+.swiftpm/
 
 # macOS app bundle
 Lumin.app/
+Lumin.xcodeproj/
+dmg-contents/
+Lumin.dmg
 
 # Xcode/Derived data (if opened in Xcode)
 DerivedData/
