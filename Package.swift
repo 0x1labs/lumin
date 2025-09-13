@@ -20,15 +20,15 @@ let package = Package(
                 "Lumin.entitlements",
                 "README.md",
                 "run.sh",
-                "Lumin.app"
+                "Lumin.app",
+                "build_dmg.sh",
             ],
             sources: ["LuminApp.swift", "Modules"],
             resources: [
                 .process("Resources")
             ],
             linkerSettings: [
-                .linkedFramework("ServiceManagement"),
-                .linkedFramework("UserNotifications")
+                .linkedFramework("ServiceManagement")
             ]
         )
     ]

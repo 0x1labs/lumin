@@ -21,8 +21,8 @@ struct MainView: View {
                     Section("Preferences") {
                         NavigationLink("General", value: NavigationItem.general)
                         NavigationLink("Break Schedule", value: NavigationItem.breakSchedule)
+                        NavigationLink("Custom Breaks", value: NavigationItem.customBreaks)
                         NavigationLink("Appearance", value: NavigationItem.appearance)
-                        NavigationLink("Shortcuts", value: NavigationItem.shortcuts)
                     }
 
                     Section("About") {
@@ -40,10 +40,10 @@ struct MainView: View {
                         GeneralSettingsView()
                     case .breakSchedule:
                         BreakScheduleView()
+                    case .customBreaks:
+                        CustomBreaksView()
                     case .appearance:
                         AppearanceView()
-                    case .shortcuts:
-                        ShortcutsView()
                     case .about:
                         AboutView()
                     case .help:
@@ -82,8 +82,8 @@ enum NavigationItem: String, CaseIterable, Hashable {
     case statistics = "Statistics"
     case general = "General"
     case breakSchedule = "Break Schedule"
+    case customBreaks = "Custom Breaks"
     case appearance = "Appearance"
-    case shortcuts = "Shortcuts"
     case about = "About"
     case help = "Help"
 }

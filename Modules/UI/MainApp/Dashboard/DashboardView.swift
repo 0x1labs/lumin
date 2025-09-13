@@ -6,177 +6,23 @@ struct DashboardView: View {
     @State private var breakManager = BreakManager.shared
     @State private var timeUntilNextBreak: TimeInterval = 0
     @State private var nextBreakType: String = ""
+    @State private var nextCustomIcon: String? = nil
     @State private var countdownTimer: Timer?
     
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 30) {
+            VStack(alignment: .leading, spacing: 20) {
                 Text("Dashboard")
                     .font(.largeTitle)
                     .fontWeight(.bold)
                 
-                // Status card
-                VStack(alignment: .leading, spacing: 15) {
-                    HStack {
-                        Image(systemName: "eye")
-                            .font(.title2)
-                            .foregroundColor(.blue)
-                        Text("Current Status")
-                            .font(.headline)
-                            .fontWeight(.semibold)
-                        Spacer()
-                        Text(breakManager.isEnabled ? (breakManager.isOnBreak ? "On Break" : "Active") : "Paused")
-                            .font(.headline)
-                            .foregroundColor(breakManager.isEnabled ? (breakManager.isOnBreak ? .green : .blue) : .orange)
-                    }
-                    
-                    if breakManager.isEnabled {
-                        Text("Breaks are currently enabled. You'll receive notifications when it's time for a break.")
-                            .foregroundColor(.secondary)
-                    } else {
-                        Text("Breaks are currently paused. Enable breaks in the settings to start receiving notifications.")
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .padding()
-                .background(.quaternary.opacity(0.2))
-                .cornerRadius(12)
-                
-                // Countdown section
-                if breakManager.isEnabled && !breakManager.isOnBreak {
-                    VStack(alignment: .leading, spacing: 20) {
-                        Text("Next Break")
-                            .font(.headline)
-                            .fontWeight(.semibold)
-                        
-                        HStack {
-                            // Icon based on break type
-                            Group {
-                                switch nextBreakType {
-                                case "Regular Break":
-                                    Image(systemName: "cup.and.saucer")
-                                        .foregroundColor(.blue)
-                                case "Micro Break":
-                                    Image(systemName: "eye")
-                                        .foregroundColor(.orange)
-                                case "Water Break":
-                                    Image(systemName: "drop")
-                                        .foregroundColor(.teal)
-                                default:
-                                    Image(systemName: "clock")
-                                        .foregroundColor(.gray)
-                                }
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(nextBreakType)
-                                    .font(.headline)
-                                Text("In \(formatCountdownTime(timeUntilNextBreak))")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                        }
-                    }
-                    .padding()
-                    .background(.quaternary.opacity(0.2))
-                    .cornerRadius(12)
-                }
-                
-                // Timeline section
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("Upcoming Breaks")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                    
-                    if breakManager.isEnabled {
-                        // Sort breaks by time until next break (shortest first)
-                        let breakTimes = getSortedBreakTimes()
-                        
-                        if breakTimes.isEmpty {
-                            HStack {
-                                Spacer()
-                                VStack(spacing: 10) {
-                                    Image(systemName: "clock")
-                                        .font(.largeTitle)
-                                        .foregroundColor(.secondary)
-                                    Text("No upcoming breaks scheduled")
-                                        .font(.headline)
-                                        .foregroundColor(.secondary)
-                                }
-                                Spacer()
-                            }
-                            .padding()
-                        } else {
-                            VStack(alignment: .leading, spacing: 15) {
-                                ForEach(breakTimes.indices, id: \.self) { index in
-                                    HStack {
-                                        // Icon based on break type
-                                        Group {
-                                            switch breakTimes[index].type {
-                                            case "Regular Break":
-                                                Image(systemName: "cup.and.saucer")
-                                                    .foregroundColor(.blue)
-                                            case "Micro Break":
-                                                Image(systemName: "eye")
-                                                    .foregroundColor(.orange)
-                                            case "Water Break":
-                                                Image(systemName: "drop")
-                                                    .foregroundColor(.teal)
-                                            default:
-                                                Image(systemName: "clock")
-                                                    .foregroundColor(.gray)
-                                            }
-                                        }
-                                        
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(breakTimes[index].type)
-                                                .font(.headline)
-                                            Text("Next in \(breakTimes[index].timeUntil)")
-                                                .font(.subheadline)
-                                                .foregroundColor(.secondary)
-                                        }
-                                        Spacer()
-                                    }
-                                    
-                                    // Add divider except for the last item
-                                    if index < breakTimes.count - 1 {
-                                        Divider()
-                                    }
-                                }
-                            }
-                            .padding(.vertical, 5)
-                        }
-                    } else {
-                        HStack {
-                            Spacer()
-                            VStack(spacing: 10) {
-                                Image(systemName: "pause.circle")
-                                    .font(.largeTitle)
-                                    .foregroundColor(.secondary)
-                                Text("Breaks are paused")
-                                    .font(.headline)
-                                    .foregroundColor(.secondary)
-                                Text("Enable breaks to see upcoming break schedule")
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                            }
-                            Spacer()
-                        }
-                        .padding()
-                    }
-                }
-                .padding()
-                .background(.quaternary.opacity(0.2))
-                .cornerRadius(12)
-                
                 // Quick actions
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 15) {
                     Text("Quick Actions")
                         .font(.headline)
                         .fontWeight(.semibold)
                     
-                    HStack(spacing: 15) {
+                    HStack(spacing: 12) {
                         Button(action: {
                             if breakManager.isEnabled && !breakManager.isOnBreak {
                                 breakManager.startBreak()
@@ -217,11 +63,176 @@ struct DashboardView: View {
                 }
                 .padding()
                 .background(.quaternary.opacity(0.2))
-                .cornerRadius(12)
+                .cornerRadius(8)
+                
+                // Status card
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Image(systemName: "eye")
+                            .font(.title2)
+                            .foregroundColor(.blue)
+                        Text("Current Status")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Text(breakManager.isEnabled ? (breakManager.isOnBreak ? "On Break" : "Active") : "Paused")
+                            .font(.headline)
+                            .foregroundColor(breakManager.isEnabled ? (breakManager.isOnBreak ? .green : .blue) : .orange)
+                    }
+                    
+                    if breakManager.isEnabled {
+                        Text("Breaks are currently enabled. You'll receive notifications when it's time for a break.")
+                            .foregroundColor(.secondary)
+                            .font(.caption)
+                    } else {
+                        Text("Breaks are currently paused. Enable breaks in the settings to start receiving notifications.")
+                            .foregroundColor(.secondary)
+                            .font(.caption)
+                    }
+                }
+                .padding()
+                .background(.quaternary.opacity(0.2))
+                .cornerRadius(8)
+                
+                // Countdown section
+                if breakManager.isEnabled && !breakManager.isOnBreak {
+                    VStack(alignment: .leading, spacing: 15) {
+                        Text("Next Break")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        
+                        HStack {
+                            // Icon based on break type
+                            Group {
+                                if let customIcon = nextCustomIcon {
+                                    Image(systemName: customIcon)
+                                        .foregroundColor(.accentColor)
+                                } else {
+                                    switch nextBreakType {
+                                    case "Regular Break":
+                                        Image(systemName: "cup.and.saucer")
+                                            .foregroundColor(.blue)
+                                    case "Micro Break":
+                                        Image(systemName: "eye")
+                                            .foregroundColor(.orange)
+                                    case "Water Break":
+                                        Image(systemName: "drop")
+                                            .foregroundColor(.teal)
+                                    default:
+                                        Image(systemName: "clock")
+                                            .foregroundColor(.gray)
+                                    }
+                                }
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(nextBreakType)
+                                    .font(.headline)
+                                Text("In \(formatCountdownTime(timeUntilNextBreak))")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }
+                    }
+                    .padding()
+                    .background(.quaternary.opacity(0.2))
+                    .cornerRadius(8)
+                }
+                
+                // Timeline section
+                VStack(alignment: .leading, spacing: 15) {
+                    Text("Upcoming Breaks")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                    
+                    if breakManager.isEnabled {
+                        // Sort breaks by time until next break (shortest first)
+                        let breakTimes = getSortedBreakTimes()
+                        
+                        if breakTimes.isEmpty {
+                            HStack {
+                                Spacer()
+                                VStack(spacing: 10) {
+                                    Image(systemName: "clock")
+                                        .font(.title2)
+                                        .foregroundColor(.secondary)
+                                    Text("No upcoming breaks scheduled")
+                                        .font(.headline)
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                            }
+                            .padding()
+                        } else {
+                            VStack(alignment: .leading, spacing: 12) {
+                                ForEach(breakTimes.indices, id: \.self) { index in
+                                    HStack {
+                                        // Icon based on break type
+                                        Group {
+                                            switch breakTimes[index].type {
+                                            case "Regular Break":
+                                                Image(systemName: "cup.and.saucer")
+                                                    .foregroundColor(.blue)
+                                            case "Micro Break":
+                                                Image(systemName: "eye")
+                                                    .foregroundColor(.orange)
+                                            case "Water Break":
+                                                Image(systemName: "drop")
+                                                    .foregroundColor(.teal)
+                                            default:
+                                                Image(systemName: "clock")
+                                                    .foregroundColor(.gray)
+                                            }
+                                        }
+                                        
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(breakTimes[index].type)
+                                                .font(.headline)
+                                                .lineLimit(1)
+                                            Text("Next in \(breakTimes[index].timeUntil)")
+                                                .font(.subheadline)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        Spacer()
+                                    }
+                                    
+                                    // Add divider except for the last item
+                                    if index < breakTimes.count - 1 {
+                                        Divider()
+                                    }
+                                }
+                            }
+                            .padding(.vertical, 5)
+                        }
+                    } else {
+                        HStack {
+                            Spacer()
+                            VStack(spacing: 10) {
+                                Image(systemName: "pause.circle")
+                                    .font(.title2)
+                                    .foregroundColor(.secondary)
+                                Text("Breaks are paused")
+                                    .font(.headline)
+                                    .foregroundColor(.secondary)
+                                Text("Enable breaks to see upcoming break schedule")
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .font(.caption)
+                            }
+                            Spacer()
+                        }
+                        .padding()
+                    }
+                }
+                .padding()
+                .background(.quaternary.opacity(0.2))
+                .cornerRadius(8)
                 
                 Text("Welcome to Lumin! This is your dashboard where you can see an overview of your break statistics and upcoming breaks.")
                     .multilineTextAlignment(.leading)
                     .foregroundColor(.secondary)
+                    .font(.caption)
                 
                 Spacer()
             }
@@ -280,14 +291,34 @@ struct DashboardView: View {
                 breakType = "Water Break"
             }
         }
+
+        // Check custom breaks
+        let customUpcoming = breakManager.nextCustomBreaks
+        if let nearest = customUpcoming.min(by: { $0.date < $1.date }), nearest.date > now {
+            if let currentNext = nextBreakDate {
+                if nearest.date < currentNext {
+                    nextBreakDate = nearest.date
+                    breakType = nearest.custom.name
+                    nextCustomIcon = nearest.custom.iconSystemName
+                }
+            } else {
+                nextBreakDate = nearest.date
+                breakType = nearest.custom.name
+                nextCustomIcon = nearest.custom.iconSystemName
+            }
+        }
         
         // Update the UI with the time until the next break
         if let nextBreakDate = nextBreakDate {
             timeUntilNextBreak = nextBreakDate.timeIntervalSince(now)
             nextBreakType = breakType
+            if breakType != "Regular Break" && breakType != "Micro Break" && breakType != "Water Break" && nextCustomIcon == nil {
+                nextCustomIcon = "star"
+            }
         } else {
             timeUntilNextBreak = 0
             nextBreakType = ""
+            nextCustomIcon = nil
         }
     }
     
@@ -348,6 +379,18 @@ struct DashboardView: View {
                 timeUntil: timeString
             ))
             timeIntervals["Water Break"] = timeUntil
+        }
+        
+        // Add custom breaks
+        for entry in breakManager.nextCustomBreaks {
+            let date = entry.date
+            if date > now {
+                let timeUntil = date.timeIntervalSince(now)
+                let timeString = formatTimeUntil(timeUntil)
+                let title = entry.custom.name
+                breakTimes.append((type: title, timeUntil: timeString))
+                timeIntervals[title] = timeUntil
+            }
         }
         
         // Sort by time until next break (shortest first)

@@ -7,6 +7,7 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
     private let duration: TimeInterval
     private let onSkip: () -> Void
     private let selectedMessage: String
+    private let customIconSystemName: String?
     private var startTime: Date = Date()
     private var timer: Timer?
     private var hostingController: NSHostingController<AnyView>?
@@ -18,6 +19,7 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
         self.onSkip = onSkip
         self.displayTimeRemaining = duration
         self.selectedMessage = BreakOverlayController.message(for: breakType)
+        self.customIconSystemName = nil
         
         Logger.debug("Creating BreakOverlayController with breakType: \(breakType), duration: \(duration)")
         
@@ -43,9 +45,9 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
         // Use different window levels based on break type
         switch breakType {
         case .regular:
-            window.level = .floating  // Changed from .modalPanel to .floating to match other break types
-        case .micro, .water:
-            window.level = .floating  // Lower level for micro and water breaks
+            window.level = .floating  // High level for regular breaks to ensure visibility
+        case .micro, .water, .custom:
+            window.level = .floating  // Same level for all breaks to ensure consistent behavior
         }
         
         window.isOpaque = false
@@ -54,12 +56,12 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         window.delegate = self
         
-        // Make sure the window can become key and main
+        // Prevent the window from becoming key or main to avoid stealing focus
         window.isReleasedWhenClosed = false
+        window.canBecomeVisibleWithoutLogin = true
         
-        Logger.debug("Window created with frame: \(window.frame), level: \(window.level.rawValue)")
-        Logger.debug("Window properties - isOpaque: \(window.isOpaque), backgroundColor: \(String(describing: window.backgroundColor))")
-        // NSApp manages login behavior; NSWindow has no canBecomeVisibleWithoutLogin
+        // Additional properties to prevent focus stealing
+        window.hidesOnDeactivate = false
         
         // Create the SwiftUI view
         let overlayView = BreakOverlayView(
@@ -67,12 +69,35 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
             duration: duration,
             controller: self,
             message: selectedMessage,
+            customIconSystemName: customIconSystemName,
+            customTitle: nil,
             onSkip: { self.skipBreak() }
         )
         
         hostingController = NSHostingController(rootView: AnyView(overlayView))
         self.contentViewController = hostingController
         Logger.debug("BreakOverlayController initialized")
+    }
+
+    // Custom break convenience initializer
+    convenience init(customTitle: String, customIconSystemName: String?, duration: TimeInterval, onSkip: @escaping () -> Void) {
+        self.init(breakType: .custom, duration: duration, onSkip: onSkip)
+        self.setCustom(message: customTitle, iconSystemName: customIconSystemName)
+    }
+
+    private func setCustom(message: String, iconSystemName: String?) {
+        // Rebuild the SwiftUI view with custom parameters
+        let overlayView = BreakOverlayView(
+            breakType: .custom,
+            duration: duration,
+            controller: self,
+            message: message,
+            customIconSystemName: iconSystemName,
+            customTitle: message,
+            onSkip: { self.skipBreak() }
+        )
+        hostingController = NSHostingController(rootView: AnyView(overlayView))
+        self.contentViewController = hostingController
     }
     
     required init?(coder: NSCoder) {
@@ -87,7 +112,33 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
             return "Blink and check posture!"
         case .water:
             return "Take a sip of water"
+        case .custom:
+            return "Break time!"
         }
+    }
+
+    private static func color(fromHex hex: String?) -> Color? {
+        guard let hex = hex?.trimmingCharacters(in: .whitespacesAndNewlines), !hex.isEmpty else { return nil }
+        var cleaned = hex
+        if cleaned.hasPrefix("#") { cleaned.removeFirst() }
+        var int: UInt64 = 0
+        guard Scanner(string: cleaned).scanHexInt64(&int) else { return nil }
+        let a, r, g, b: UInt64
+        switch cleaned.count {
+        case 8:
+            a = (int & 0xff000000) >> 24
+            r = (int & 0x00ff0000) >> 16
+            g = (int & 0x0000ff00) >> 8
+            b = (int & 0x000000ff)
+        case 6:
+            a = 255
+            r = (int & 0x00ff0000) >> 16
+            g = (int & 0x0000ff00) >> 8
+            b = (int & 0x000000ff)
+        default:
+            return nil
+        }
+        return Color(.sRGB, red: Double(r)/255.0, green: Double(g)/255.0, blue: Double(b)/255.0, opacity: Double(a)/255.0)
     }
     
     func show() {
@@ -101,14 +152,15 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
         // Check if we can become main and key
         if let window = self.window { Logger.debug("Window can become main: \(window.canBecomeMain), key: \(window.canBecomeKey), visible: \(window.isVisible)") }
         
-        Logger.debug("Activating NSApp")
-        NSApp.activate(ignoringOtherApps: true)
+        // Remove the focus-stealing activation
+        // NSApp.activate(ignoringOtherApps: true)
         
-        // Ensure the window is ordered front and key
+        // Ensure the window is ordered front but without stealing focus
         if let window = self.window {
             Logger.debug("Window frame: \(window.frame)")
             window.orderFrontRegardless()
-            window.makeKeyAndOrderFront(nil)
+            // Remove makeKeyAndOrderFront to prevent focus stealing
+            // window.makeKeyAndOrderFront(nil)
             Logger.debug("Window made key and ordered front; visible: \(window.isVisible), main: \(window.isMainWindow), key: \(window.isKeyWindow)")
         } else {
             Logger.debug("ERROR - Window is nil")

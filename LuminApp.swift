@@ -1,6 +1,5 @@
 import SwiftUI
 import AppKit
-import UserNotifications
 
 @main
 struct LuminApp: App {
@@ -8,18 +7,14 @@ struct LuminApp: App {
         // Offer to move the app to Applications on first launch (if needed)
         AutoMoveToApplications.moveIfNeeded()
 
-        // Request notification authorization
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if granted {
-                print("Notification authorization granted")
-            } else if let error = error {
-                print("Notification authorization error: \(error.localizedDescription)")
-            }
-        }
+        // Notifications removed; no permission requested
 
         // Initialize BreakManager early
         _ = BreakManager.shared
         print("Lumin: BreakManager initialized")
+
+        // Warm custom breaks cache early to speed up opening settings later
+        _ = SettingsManager.shared.customBreaks
 
         // Check if another instance is already running
         let runningApps = NSWorkspace.shared.runningApplications

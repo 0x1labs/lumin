@@ -1,7 +1,6 @@
 import SwiftUI
 import Observation
 import Foundation
-import UserNotifications
 import AppKit
 
 @Observable
@@ -17,6 +16,21 @@ class BreakManager {
                 startTimers()
             } else {
                 stopTimers()
+            }
+        }
+    }
+
+    var areRegularBreaksEnabled: Bool {
+        get { SettingsManager.shared.regularBreaksEnabled }
+        set {
+            SettingsManager.shared.regularBreaksEnabled = newValue
+            if newValue {
+                // Only (re)start the regular timer
+                restartWorkTimer()
+            } else {
+                // Invalidate only the regular timer
+                regularBreakTimer?.invalidate()
+                regularBreakTimer = nil
             }
         }
     }
@@ -49,11 +63,24 @@ class BreakManager {
         }
     }
     
-    // Computed properties for UI access
-    var workInterval: TimeInterval {
-        get { SettingsManager.shared.workInterval }
+    var areCustomBreaksEnabled: Bool {
+        get { SettingsManager.shared.customBreaksEnabled }
         set {
-            SettingsManager.shared.workInterval = newValue
+            SettingsManager.shared.customBreaksEnabled = newValue
+            if newValue {
+                startCustomTimers()
+            } else {
+                for (_, t) in customTimers { t.invalidate() }
+                customTimers.removeAll()
+            }
+        }
+    }
+    
+    // Computed properties for UI access
+    var breakInterval: TimeInterval {
+        get { SettingsManager.shared.breakInterval }
+        set {
+            SettingsManager.shared.breakInterval = newValue
             // Only restart the regular work timer
             if isEnabled { restartWorkTimer() }
         }
@@ -108,10 +135,9 @@ class BreakManager {
     // Computed properties to access break settings
     private var regularBreakSettings: BreakSettings {
         return BreakSettings(
-            interval: SettingsManager.shared.workInterval,
+            interval: SettingsManager.shared.breakInterval,
             duration: SettingsManager.shared.breakDuration,
             isEnabled: SettingsManager.shared.isEnabled,
-            notificationStyle: SettingsManager.shared.notificationStyle,
             startAtLogin: SettingsManager.shared.startAtLogin
         )
     }
@@ -121,7 +147,6 @@ class BreakManager {
             interval: SettingsManager.shared.microBreakInterval,
             duration: SettingsManager.shared.microBreakDuration,
             isEnabled: SettingsManager.shared.microBreaksEnabled,
-            notificationStyle: SettingsManager.shared.notificationStyle,
             startAtLogin: SettingsManager.shared.startAtLogin
         )
     }
@@ -131,7 +156,6 @@ class BreakManager {
             interval: SettingsManager.shared.waterBreakInterval,
             duration: SettingsManager.shared.waterBreakDuration,
             isEnabled: SettingsManager.shared.waterBreaksEnabled,
-            notificationStyle: SettingsManager.shared.notificationStyle,
             startAtLogin: SettingsManager.shared.startAtLogin
         )
     }
@@ -140,14 +164,20 @@ class BreakManager {
     private var regularBreakTimer: Timer?
     private var microBreakTimer: Timer?
     private var waterBreakTimer: Timer?
+    private var customTimers: [UUID: Timer] = [:]
+    private var customIndex: [UUID: CustomBreak] = [:]
     private var breakOverlayController: BreakOverlayController?
     
     // State
     var isOnBreak = false
+    private var breakStartTime: Date?
+    private var breakType: StatisticsBreakType?
+    private var breakDurationValue: TimeInterval?
+    private var breakRecorded = false
     
     private init() {
         print("Lumin: Initializing BreakManager")
-        print("Lumin: Initial work interval: \(workInterval)")
+        print("Lumin: Initial break interval: \(breakInterval)")
         print("Lumin: Initial break duration: \(breakDuration)")
         print("Lumin: Initial micro break interval: \(microBreakInterval)")
         print("Lumin: Initial micro break duration: \(microBreakDuration)")
@@ -159,11 +189,8 @@ class BreakManager {
         startTimers()
     }
     
-    // Use NotificationManager for notifications honoring user style
-    private func notify(title: String, subtitle: String) {
-        let style = SettingsManager.shared.notificationStyle
-        NotificationManager.shared.scheduleBreakNotification(title: title, body: subtitle, style: style)
-    }
+    // Notifications removed; no-op
+    private func notify(title: String, subtitle: String) { }
     
     // Define a function to handle breaks
     private func handleBreak(type: BreakType, duration: TimeInterval) {
@@ -180,11 +207,31 @@ class BreakManager {
 
         print("Lumin: Starting \(type.rawValue) break for \(duration) seconds")
         isOnBreak = true
-
+        
+        // Store break information for statistics recording
+        let startTime = Date()
+        let breakEventType: StatisticsBreakType
+        switch type {
+        case .regular:
+            breakEventType = .regular
+        case .micro:
+            breakEventType = .micro
+        case .water:
+            breakEventType = .water
+        case .custom:
+            // For custom breaks, we'll need to handle this differently
+            breakEventType = .custom("Unknown")
+        }
+        
+        self.breakStartTime = startTime
+        self.breakType = breakEventType
+        self.breakDurationValue = duration
+        self.breakRecorded = false
+        
         print("Lumin: Creating BreakOverlayController with breakType: \(type)")
         breakOverlayController = BreakOverlayController(breakType: type, duration: duration, onSkip: {
             print("Lumin: Break skipped by user")
-            self.endBreak(type: type)
+            self.endBreak(type: type, skipped: true)
         })
         print("Lumin: Showing BreakOverlayController")
         breakOverlayController?.show()
@@ -209,16 +256,73 @@ class BreakManager {
         print("Lumin: Scheduling break end in \(adjustedDuration) seconds")
         DispatchQueue.main.asyncAfter(deadline: .now() + adjustedDuration) {
             print("Lumin: Break duration elapsed, ending break")
-            self.endBreak(type: type)
+            self.endBreak(type: type, skipped: false)
+        }
+    }
+
+    private func handleCustomBreak(_ custom: CustomBreak) {
+        guard isEnabled, custom.isEnabled else { return }
+        guard !isOnBreak else {
+            print("Lumin: A break is already in progress. Ignoring custom break: \(custom.name)")
+            return
+        }
+        print("Lumin: Starting custom break \(custom.name) for \(custom.duration) seconds")
+        isOnBreak = true
+        
+        // Store break information for statistics recording
+        let startTime = Date()
+        let breakEventType = StatisticsBreakType.custom(custom.name)
+        
+        self.breakStartTime = startTime
+        self.breakType = breakEventType
+        self.breakDurationValue = custom.duration
+        self.breakRecorded = false
+
+        breakOverlayController = BreakOverlayController(customTitle: custom.name,
+                                                        customIconSystemName: custom.iconSystemName,
+                                                        duration: custom.duration, onSkip: {
+            print("Lumin: Custom break skipped by user")
+            self.endCustomBreak(custom, skipped: true)
+        })
+        breakOverlayController?.show()
+
+        notify(title: "\(custom.name)", subtitle: "Take a break for \(Int(custom.duration)) seconds.")
+
+        let adjustedDuration = max(1.0, custom.duration)
+        DispatchQueue.main.asyncAfter(deadline: .now() + adjustedDuration) {
+            print("Lumin: Custom break duration elapsed, ending break")
+            self.endCustomBreak(custom, skipped: false)
         }
     }
     
-    private func endBreak(type: BreakType) {
-        Logger.debug("\(type.rawValue) break ended")
+    private func endBreak(type: BreakType, skipped: Bool = false) {
+        Logger.debug("\(type.rawValue) break ended, skipped: \(skipped)")
+        
+        // Record statistics if not already recorded
+        if !breakRecorded, let breakType = self.breakType, let startTime = self.breakStartTime {
+            if skipped {
+                StatisticsManager.shared.recordBreakSkipped(type: breakType, scheduledTime: startTime)
+            } else {
+                StatisticsManager.shared.recordBreakTaken(
+                    type: breakType,
+                    scheduledTime: startTime,
+                    actualTime: Date(),
+                    duration: breakDurationValue ?? 0
+                )
+            }
+            breakRecorded = true
+        }
+        
         isOnBreak = false
         notify(title: "\(type.rawValue) Break Ended", subtitle: "Your \(type.rawValue) break is over.")
         breakOverlayController?.close()
         breakOverlayController = nil
+
+        // Clear break information
+        self.breakStartTime = nil
+        self.breakType = nil
+        self.breakDurationValue = nil
+        self.breakRecorded = false
 
         // Restart only the corresponding timer
         switch type {
@@ -229,7 +333,41 @@ class BreakManager {
             break
         case .water:
             restartWaterTimer()
+        case .custom:
+            break
         }
+    }
+
+    private func endCustomBreak(_ custom: CustomBreak, skipped: Bool = false) {
+        Logger.debug("Custom break ended: \(custom.name), skipped: \(skipped)")
+        
+        // Record statistics if not already recorded
+        if !breakRecorded, let breakType = self.breakType, let startTime = self.breakStartTime {
+            if skipped {
+                StatisticsManager.shared.recordBreakSkipped(type: breakType, scheduledTime: startTime)
+            } else {
+                StatisticsManager.shared.recordBreakTaken(
+                    type: breakType,
+                    scheduledTime: startTime,
+                    actualTime: Date(),
+                    duration: breakDurationValue ?? 0
+                )
+            }
+            breakRecorded = true
+        }
+        
+        isOnBreak = false
+        notify(title: "\(custom.name) Ended", subtitle: "Your break is over.")
+        breakOverlayController?.close()
+        breakOverlayController = nil
+        
+        // Clear break information
+        self.breakStartTime = nil
+        self.breakType = nil
+        self.breakDurationValue = nil
+        self.breakRecorded = false
+        
+        restartCustomTimer(for: custom)
     }
     
     // Define a function to start timers
@@ -240,21 +378,23 @@ class BreakManager {
         }
         
         Logger.debug("Starting all break timers")
-        Logger.debug("Work interval: \(workInterval), Break duration: \(breakDuration)")
+        Logger.debug("Break interval: \(breakInterval), Break duration: \(breakDuration)")
         Logger.debug("Micro break interval: \(microBreakInterval), Micro break duration: \(microBreakDuration)")
         Logger.debug("Water break interval: \(waterBreakInterval), Water break duration: \(waterBreakDuration)")
         
-        // Create regular break timer if not present
-        if regularBreakTimer == nil {
-            Logger.debug("Creating regular break timer with interval \(workInterval)")
-            let regular = Timer(timeInterval: workInterval, repeats: true) { _ in
+        // Create regular break timer if enabled
+        if areRegularBreaksEnabled && regularBreakTimer == nil {
+            Logger.debug("Creating regular break timer with interval \(breakInterval)")
+            let regular = Timer(timeInterval: breakInterval, repeats: true) { _ in
                 Logger.debug("Regular break timer fired")
                 self.handleBreak(type: .regular, duration: self.breakDuration)
             }
-            regular.tolerance = workInterval * 0.1
+            regular.tolerance = breakInterval * 0.1
             RunLoop.main.add(regular, forMode: .common)
             regularBreakTimer = regular
             Logger.debug("Regular break timer created with fire date: \(String(describing: regularBreakTimer?.fireDate))")
+        } else if !areRegularBreaksEnabled {
+            Logger.debug("Regular breaks disabled; not creating regular timer")
         } else {
             Logger.debug("Regular break timer already active; not recreating")
         }
@@ -293,13 +433,18 @@ class BreakManager {
             }
         }
         
+        // Start custom break timers if enabled
+        if areCustomBreaksEnabled {
+            startCustomTimers()
+        }
+        
         Logger.debug("Timers started - Regular: \(regularBreakTimer != nil), Micro: \(microBreakTimer != nil), Water: \(waterBreakTimer != nil)")
     }
     
     // Function to skip the next break
     func skipNextBreak() {
         Logger.debug("Skipping next break")
-        // Restart the work timer from now
+        // Restart the work timer from now (if enabled)
         restartWorkTimer()
     }
     
@@ -318,16 +463,20 @@ class BreakManager {
         // Invalidate the existing regular break timer
         regularBreakTimer?.invalidate()
         
-        // Start a new regular break timer with the work interval
-        let regular = Timer(timeInterval: workInterval, repeats: true) { _ in
+        guard areRegularBreaksEnabled else {
+            regularBreakTimer = nil
+            Logger.debug("Regular breaks disabled; not starting work timer")
+            return
+        }
+        // Start a new regular break timer with the break interval
+        let regular = Timer(timeInterval: breakInterval, repeats: true) { _ in
             Logger.debug("Regular break timer fired")
             self.handleBreak(type: .regular, duration: self.breakDuration)
         }
-        regular.tolerance = workInterval * 0.1
+        regular.tolerance = breakInterval * 0.1
         RunLoop.main.add(regular, forMode: .common)
         regularBreakTimer = regular
-        
-        Logger.debug("Work timer restarted with interval: \(workInterval)s")
+        Logger.debug("Work timer restarted with interval: \(breakInterval)s")
     }
 
     // Restart the micro-break timer from now (does not affect other timers)
@@ -372,6 +521,8 @@ class BreakManager {
         regularBreakTimer?.invalidate()
         microBreakTimer?.invalidate()
         waterBreakTimer?.invalidate()
+        for (_, t) in customTimers { t.invalidate() }
+        customTimers.removeAll()
         isOnBreak = false
     }
     
@@ -382,7 +533,7 @@ class BreakManager {
     
     // Function to update break settings
     func updateRegularBreakSettings(interval: TimeInterval, duration: TimeInterval) {
-        SettingsManager.shared.workInterval = interval
+        SettingsManager.shared.breakInterval = interval
         SettingsManager.shared.breakDuration = duration
         // Restart only the regular timer
         if isEnabled { restartWorkTimer() }
@@ -400,5 +551,90 @@ class BreakManager {
         SettingsManager.shared.waterBreakDuration = duration
         // Restart only the water timer if enabled
         if isEnabled && areWaterBreaksEnabled { restartWaterTimer() }
+    }
+
+    // MARK: - Custom Breaks API
+    var customBreaks: [CustomBreak] {
+        SettingsManager.shared.customBreaks
+    }
+
+    func addCustomBreak(_ custom: CustomBreak) {
+        let (normalized, _) = normalizeCustomBreak(custom)
+        var all = SettingsManager.shared.customBreaks
+        all.append(normalized)
+        SettingsManager.shared.customBreaks = all
+        if isEnabled && normalized.isEnabled { restartCustomTimer(for: normalized) }
+    }
+
+    func updateCustomBreak(_ custom: CustomBreak) {
+        let (normalized, _) = normalizeCustomBreak(custom)
+        var all = SettingsManager.shared.customBreaks
+        if let idx = all.firstIndex(where: { $0.id == normalized.id }) {
+            all[idx] = normalized
+            SettingsManager.shared.customBreaks = all
+            // Reset timer for this custom break
+            if isEnabled {
+                if normalized.isEnabled { restartCustomTimer(for: normalized) }
+                else { stopCustomTimer(for: normalized.id) }
+            }
+        }
+    }
+
+    // Clamp custom values to sensible ranges
+    // Interval: 1 min .. 12 hours (60 .. 43200 s)
+    // Duration: 1 s .. 1 hour (1 .. 3600 s)
+    func normalizeCustomBreak(_ custom: CustomBreak) -> (CustomBreak, Bool) {
+        var c = custom
+        let originalInterval = c.interval
+        let originalDuration = c.duration
+        c.interval = max(60, min(c.interval, 43200))
+        c.duration = max(1, min(c.duration, 3600))
+        let adjusted = (c.interval != originalInterval) || (c.duration != originalDuration)
+        return (c, adjusted)
+    }
+
+    func removeCustomBreak(id: UUID) {
+        var all = SettingsManager.shared.customBreaks
+        all.removeAll { $0.id == id }
+        SettingsManager.shared.customBreaks = all
+        stopCustomTimer(for: id)
+    }
+
+    private func startCustomTimers() {
+        customIndex = SettingsManager.shared.customBreaks.reduce(into: [:]) { dict, item in
+            dict[item.id] = item
+        }
+        for custom in SettingsManager.shared.customBreaks where custom.isEnabled {
+            if customTimers[custom.id] == nil {
+                restartCustomTimer(for: custom)
+            }
+        }
+    }
+
+    private func restartCustomTimer(for custom: CustomBreak) {
+        stopCustomTimer(for: custom.id)
+        customIndex[custom.id] = custom
+        let t = Timer(timeInterval: custom.interval, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            self.handleCustomBreak(custom)
+        }
+        t.tolerance = custom.interval * 0.1
+        RunLoop.main.add(t, forMode: .common)
+        customTimers[custom.id] = t
+        Logger.debug("Custom timer restarted for: \(custom.name) interval: \(custom.interval)s")
+    }
+
+    private func stopCustomTimer(for id: UUID) {
+        if let t = customTimers[id] { t.invalidate() }
+        customTimers.removeValue(forKey: id)
+    }
+
+    // Expose upcoming custom breaks for UI
+    var nextCustomBreaks: [(custom: CustomBreak, date: Date)] {
+        customTimers.compactMap { (id, timer) in
+            guard let cb = customIndex[id] else { return nil }
+            let date = timer.fireDate
+            return (cb, date)
+        }
     }
 }
