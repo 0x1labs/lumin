@@ -22,7 +22,6 @@ let package = Package(
                 "run.sh",
                 "Lumin.app",
                 "build_dmg.sh",
-                "Lumin.dmg"
             ],
             sources: ["LuminApp.swift", "Modules"],
             resources: [
