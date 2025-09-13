@@ -13,9 +13,12 @@ struct CustomBreaksView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Custom Breaks").font(.largeTitle).fontWeight(.bold)
-                HStack { Spacer(); Button { resetForm(); isPresentingAdd = true } label: { Label("Add Custom Break", systemImage: "plus") } }
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text("Custom Breaks").font(.largeTitle).fontWeight(.bold)
+                    Spacer()
+                    Button { resetForm(); isPresentingAdd = true } label: { Label("Add Custom Break", systemImage: "plus") }
+                }
 
                 if isPresentingAdd || editing != nil {
                     VStack(alignment: .leading, spacing: 0) {
@@ -48,41 +51,53 @@ struct CustomBreaksView: View {
                         .padding()
                     }
                     .background(.quaternary.opacity(0.2))
-                    .cornerRadius(12)
+                    .cornerRadius(8)
                 }
                 if customBreaks.isEmpty {
                     VStack(spacing: 12) {
-                        Image(systemName: "square.stack.3d.up.slash").font(.largeTitle).foregroundColor(.secondary)
+                        Image(systemName: "square.stack.3d.up.slash").font(.title2).foregroundColor(.secondary)
                         Text("No custom breaks yet").font(.headline).foregroundColor(.secondary)
-                        Text("Create reminders like medicines, posture checks, and more.").foregroundColor(.secondary)
+                        Text("Create reminders like medicines, posture checks, and more.").foregroundColor(.secondary).font(.caption)
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(.quaternary.opacity(0.2))
-                    .cornerRadius(12)
+                    .cornerRadius(8)
                 } else {
-                    LazyVStack(spacing: 12) {
+                    LazyVStack(spacing: 8) {
                         ForEach($customBreaks) { $item in
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack(spacing: 12) {
                                     Image(systemName: item.iconSystemName)
                                     Text(item.name).font(.headline)
                                     Spacer()
-                                    Toggle("Enabled", isOn: $item.isEnabled).labelsHidden().onChange(of: item.isEnabled) { _, _ in commit(item) }
+                                    Toggle("Enabled", isOn: $item.isEnabled)
+                                        .labelsHidden()
+                                        .toggleStyle(.switch)
+                                        .onChange(of: item.isEnabled) { _, newValue in
+                                            commit(item)
+                                        }
                                     Button { startEditing(item) } label: { Image(systemName: "pencil") }
                                     Button(role: .destructive) { remove(item) } label: { Image(systemName: "trash") }
                                 }
-                                VStack(alignment: .leading, spacing: 12) {
-                                    TimeInputSlider(title: "Interval", systemImage: "clock", accent: .blue, unit: .minutes, units: [.minutes, .hours], value: $item.interval, rangeSeconds: 60...43200, stepSeconds: 60, onChange: { commit(item) }, sliderWidth: 420)
-                                    TimeInputSlider(title: "Duration", systemImage: "timer", accent: .teal, unit: .seconds, units: [.seconds, .minutes], value: $item.duration, rangeSeconds: 1...3600, stepSeconds: 5, onChange: { commit(item) }, sliderWidth: 420)
+                                VStack(alignment: .leading, spacing: 8) {
+                                    TimeInputView(title: "Interval", systemImage: "clock", accent: .blue, unit: .minutes, units: [.minutes, .hours], value: $item.interval, rangeSeconds: 60...43200, stepSeconds: 60, onChange: { commit(item) })
+                                    TimeInputView(title: "Duration", systemImage: "timer", accent: .teal, unit: .seconds, units: [.seconds, .minutes], value: $item.duration, rangeSeconds: 1...3600, stepSeconds: 5, onChange: { commit(item) })
                                 }
                             }
                             .padding(12)
                             .background(.quaternary.opacity(0.2))
-                            .cornerRadius(10)
+                            .cornerRadius(8)
                         }
                     }
                 }
+                
+                Spacer()
+                
+                Text("Create personalized break reminders for things like medications, posture checks, and more.")
+                    .multilineTextAlignment(.leading)
+                    .foregroundColor(.secondary)
+                    .font(.caption)
             }
             .padding()
         }

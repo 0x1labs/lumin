@@ -26,152 +26,158 @@ struct BreakScheduleView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 30) {
+            VStack(alignment: .leading, spacing: 20) {
                 Text("Break Schedule")
                     .font(.largeTitle)
                     .fontWeight(.bold)
 
                 // Regular breaks section
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 12) {
                     Toggle("Enable Regular Breaks", isOn: $regularBreaksEnabled)
                         .onChange(of: regularBreaksEnabled) { _, newValue in
                             BreakManager.shared.areRegularBreaksEnabled = newValue
                         }
                         .toggleStyle(.switch)
-                        .controlSize(.large)
 
                     if regularBreaksEnabled {
-                        VStack(alignment: .leading, spacing: 18) {
-                            TimeInputSlider(
+                        VStack(alignment: .leading, spacing: 12) {
+                            TimeInputView(
                                 title: "Interval", systemImage: "clock", accent: .blue,
                                 unit: .minutes, units: [.minutes, .hours], value: $workInterval,
                                 rangeSeconds: 60...43200, stepSeconds: 60,
                                 onChange: {
                                     BreakManager.shared.breakInterval = workInterval
-                                }, sliderWidth: 460)
-                            TimeInputSlider(
+                                })
+                            TimeInputView(
                                 title: "Duration", systemImage: "cup.and.saucer", accent: .green,
                                 unit: .seconds, units: [.seconds, .minutes], value: $breakDuration,
                                 rangeSeconds: 10...300, stepSeconds: 10,
                                 onChange: {
                                     BreakManager.shared.breakDuration = breakDuration
-                                }, sliderWidth: 460)
+                                })
                         }
-                        .padding()
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
                         .background(.quaternary.opacity(0.2))
-                        .cornerRadius(12)
+                        .cornerRadius(8)
                     } else {
-                        VStack(alignment: .center, spacing: 15) {
-                            Image(systemName: "pause.circle")
-                                .font(.largeTitle)
-                                .foregroundColor(.secondary)
-                            Text("Regular breaks are currently disabled")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "pause.circle")
+                                    .foregroundColor(.secondary)
+                                Text("Regular breaks are currently disabled")
+                                    .font(.headline)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
                             Text("Enable regular breaks to schedule longer rest periods")
                                 .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
+                                .font(.caption)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding()
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
                         .background(.quaternary.opacity(0.2))
-                        .cornerRadius(12)
+                        .cornerRadius(8)
                     }
                 }
 
                 // Micro-breaks section
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 12) {
                     Toggle("Enable Micro-breaks", isOn: $microBreaksEnabled)
                         .onChange(of: microBreaksEnabled) { _, newValue in
                             BreakManager.shared.areMicroBreaksEnabled = newValue
                         }
                         .toggleStyle(.switch)
-                        .controlSize(.large)
 
                     if microBreaksEnabled {
-                        VStack(alignment: .leading, spacing: 18) {
-                            TimeInputSlider(
+                        VStack(alignment: .leading, spacing: 12) {
+                            TimeInputView(
                                 title: "Interval", systemImage: "eye", accent: .orange,
-                                unit: .minutes, units: [.minutes], value: $microBreakInterval,
+                                unit: .minutes, units: [.minutes, .hours], value: $microBreakInterval,
                                 rangeSeconds: 60...1200, stepSeconds: 60,
                                 onChange: {
                                     BreakManager.shared.microBreakInterval = microBreakInterval
-                                }, sliderWidth: 460)
-                            TimeInputSlider(
+                                })
+                            TimeInputView(
                                 title: "Duration", systemImage: "timer", accent: .red,
                                 unit: .seconds, units: [.seconds, .minutes],
                                 value: $microBreakDuration, rangeSeconds: 1...60, stepSeconds: 1,
                                 onChange: {
                                     BreakManager.shared.microBreakDuration = microBreakDuration
-                                }, sliderWidth: 460)
+                                })
                         }
-                        .padding()
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
                         .background(.quaternary.opacity(0.2))
-                        .cornerRadius(12)
+                        .cornerRadius(8)
                     } else {
-                        VStack(alignment: .center, spacing: 15) {
-                            Image(systemName: "pause.circle")
-                                .font(.largeTitle)
-                                .foregroundColor(.secondary)
-                            Text("Micro-breaks are currently disabled")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "pause.circle")
+                                    .foregroundColor(.secondary)
+                                Text("Micro-breaks are currently disabled")
+                                    .font(.headline)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
                             Text("Enable micro-breaks for frequent short rest periods")
                                 .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
+                                .font(.caption)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding()
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
                         .background(.quaternary.opacity(0.2))
-                        .cornerRadius(12)
+                        .cornerRadius(8)
                     }
                 }
 
                 // Water breaks section
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 12) {
                     Toggle("Enable Water Breaks", isOn: $waterBreaksEnabled)
                         .onChange(of: waterBreaksEnabled) { _, newValue in
                             BreakManager.shared.areWaterBreaksEnabled = newValue
                         }
                         .toggleStyle(.switch)
-                        .controlSize(.large)
 
                     if waterBreaksEnabled {
-                        VStack(alignment: .leading, spacing: 18) {
-                            TimeInputSlider(
+                        VStack(alignment: .leading, spacing: 12) {
+                            TimeInputView(
                                 title: "Interval", systemImage: "drop", accent: .blue,
-                                unit: .minutes, units: [.minutes], value: $waterBreakInterval,
+                                unit: .minutes, units: [.minutes, .hours], value: $waterBreakInterval,
                                 rangeSeconds: 60...3600, stepSeconds: 60,
                                 onChange: {
                                     BreakManager.shared.waterBreakInterval = waterBreakInterval
-                                }, sliderWidth: 460)
-                            TimeInputSlider(
+                                })
+                            TimeInputView(
                                 title: "Duration", systemImage: "timer", accent: .teal,
                                 unit: .seconds, units: [.seconds, .minutes],
                                 value: $waterBreakDuration, rangeSeconds: 1...120, stepSeconds: 1,
                                 onChange: {
                                     BreakManager.shared.waterBreakDuration = waterBreakDuration
-                                }, sliderWidth: 460)
+                                })
                         }
-                        .padding()
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
                         .background(.quaternary.opacity(0.2))
-                        .cornerRadius(12)
+                        .cornerRadius(8)
                     } else {
-                        VStack(alignment: .center, spacing: 15) {
-                            Image(systemName: "pause.circle")
-                                .font(.largeTitle)
-                                .foregroundColor(.secondary)
-                            Text("Water breaks are currently disabled")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "pause.circle")
+                                    .foregroundColor(.secondary)
+                                Text("Water breaks are currently disabled")
+                                    .font(.headline)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
                             Text("Enable water breaks to stay hydrated throughout the day")
                                 .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
+                                .font(.caption)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding()
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
                         .background(.quaternary.opacity(0.2))
-                        .cornerRadius(12)
+                        .cornerRadius(8)
                     }
                 }
 
@@ -180,6 +186,7 @@ struct BreakScheduleView: View {
                 Text("Customize your break intervals, durations, and types of breaks.")
                     .multilineTextAlignment(.leading)
                     .foregroundColor(.secondary)
+                    .font(.caption)
 
                 Spacer()
             }
@@ -302,6 +309,9 @@ private let customIconOptions: [String] = [
     // Food
     "fork.knife", "fork.knife.circle", "takeoutbag.and.cup.and.straw",
     "takeoutbag.and.cup.and.straw.fill",
+    // Beauty & self-care
+    "sparkles", "sparkles.rectangle", "camera", "camera.fill", "camera.circle", "camera.circle.fill",
+    "wand.and.rays", "wand.and.rays.inverse", "wand.and.stars", "wand.and.stars.inverse",
     // Energy / focus
     "bolt", "bolt.fill", "flame", "flame.fill",
 ]
@@ -365,7 +375,7 @@ func hexFromColor(_ color: Color) -> String {
 // MARK: - Preset pickers
 enum TimeUnit { case seconds, minutes, hours }
 
-struct TimeInputSlider: View {
+struct TimeInputView: View {
     let title: String
     let systemImage: String
     let accent: Color
@@ -375,7 +385,6 @@ struct TimeInputSlider: View {
     let rangeSeconds: ClosedRange<Double>
     let stepSeconds: Double
     var onChange: () -> Void = {}
-    var sliderWidth: CGFloat = 340
     var hint: String? = nil
     var debounceMs: Int = 200
     var titleAbove: String? = nil
@@ -417,8 +426,10 @@ struct TimeInputSlider: View {
                             get: { value / factor },
                             set: { newVal in
                                 let seconds = (newVal * factor).rounded()
+                                // Ensure minimum value is at least 1 second
+                                let minValue = max(1, rangeSeconds.lowerBound)
                                 value = min(
-                                    max(seconds, rangeSeconds.lowerBound), rangeSeconds.upperBound)
+                                    max(seconds, minValue), rangeSeconds.upperBound)
                                 scheduleDebouncedChange()
                             }), formatter: integerFormatter
                     )
@@ -453,26 +464,6 @@ struct TimeInputSlider: View {
                         .strokeBorder(Color.gray.opacity(0.3))
                 )
             }
-            Slider(
-                value: Binding(
-                    get: { value / factor },
-                    set: { v in
-                        value = (v * factor).rounded()
-                        scheduleDebouncedChange()
-                    }), in: (rangeSeconds.lowerBound / factor)...(rangeSeconds.upperBound / factor),
-                step: stepSeconds / factor
-            ) {
-                EmptyView()
-            } minimumValueLabel: {
-                Text(minLabel)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            } maximumValueLabel: {
-                Text(maxLabel)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .frame(maxWidth: sliderWidth, alignment: .leading)
             if let hint {
                 Text(hint)
                     .font(.caption2)
@@ -480,25 +471,6 @@ struct TimeInputSlider: View {
             }
         }
         .onAppear { currentUnit = (effectiveUnits.contains(unit) ? unit : effectiveUnits.first!) }
-    }
-
-    private var minLabel: String {
-        switch currentUnit {
-        case .seconds: return "\(Int(rangeSeconds.lowerBound)) sec"
-        case .minutes: return "\(Int(rangeSeconds.lowerBound / 60)) min"
-        case .hours: return "\(Int(rangeSeconds.lowerBound / 3600)) h"
-        }
-    }
-    private var maxLabel: String {
-        switch currentUnit {
-        case .seconds:
-            return Int(rangeSeconds.upperBound) % 60 == 0
-                ? "\(Int(rangeSeconds.upperBound/60)) min" : "\(Int(rangeSeconds.upperBound)) sec"
-        case .minutes:
-            return "\(Int(rangeSeconds.upperBound / 60)) min"
-        case .hours:
-            return "\(Int(rangeSeconds.upperBound / 3600)) hr"
-        }
     }
 
     private func label(for u: TimeUnit) -> String {
@@ -520,6 +492,8 @@ private let integerFormatter: NumberFormatter = {
     f.maximum = 999999
     return f
 }()
+
+
 
 
 // MARK: - Add Custom Break V2 (Option 3 layout)
@@ -582,14 +556,14 @@ struct AddCustomBreakSheetV2: View {
                     }
 
                     VStack(alignment: .leading, spacing: 12) {
-                        TimeInputSlider(
+                        TimeInputView(
                             title: "", systemImage: "clock", accent: .blue, unit: .minutes,
                             units: [.minutes, .hours], value: $interval, rangeSeconds: 60...43200,
-                            stepSeconds: 60, sliderWidth: 420, titleAbove: "Interval")
-                        TimeInputSlider(
+                            stepSeconds: 60, titleAbove: "Interval")
+                        TimeInputView(
                             title: "", systemImage: "timer", accent: .teal, unit: .seconds,
                             units: [.seconds, .minutes], value: $duration, rangeSeconds: 5...900,
-                            stepSeconds: 5, sliderWidth: 420, titleAbove: "Duration")
+                            stepSeconds: 5, titleAbove: "Duration")
                     }
                 }
             }
@@ -603,84 +577,9 @@ struct AddCustomBreakSheetV2: View {
     }
 
     // Lazy preset data (instantiated only when the sheet is shown)
-    static let quickSwatches: [Color] = [
-        Color.yellow, Color.blue, Color.green, Color.red, Color.purple, Color.orange,
-    ]
-    struct GradientPreset {
-        let start: Color
-        let end: Color
-        let angle: Double
-    }
-    static let gradientPresets: [GradientPreset] = [
-        GradientPreset(
-            start: Color(red: 0.99, green: 0.56, blue: 0.56),
-            end: Color(red: 0.99, green: 0.35, blue: 0.65), angle: 135),
-        GradientPreset(
-            start: Color(red: 0.60, green: 0.90, blue: 0.72),
-            end: Color(red: 0.18, green: 0.80, blue: 0.44), angle: 135),
-        GradientPreset(
-            start: Color(red: 0.54, green: 0.63, blue: 1.00),
-            end: Color(red: 0.29, green: 0.27, blue: 0.92), angle: 135),
-        GradientPreset(
-            start: Color(red: 0.89, green: 0.70, blue: 1.00),
-            end: Color(red: 0.89, green: 0.40, blue: 0.87), angle: 135),
-        GradientPreset(
-            start: Color(red: 0.51, green: 0.86, blue: 0.99),
-            end: Color(red: 0.24, green: 0.63, blue: 0.96), angle: 135),
-        GradientPreset(
-            start: Color(red: 0.98, green: 0.55, blue: 0.47),
-            end: Color(red: 0.89, green: 0.22, blue: 0.46), angle: 135),
-    ]
 }
 
-// Quick color swatches and gradient presets
-private let quickSwatches: [Color] = [
-    Color.yellow, Color.blue, Color.green, Color.red, Color.purple, Color.orange,
-]
 
-private struct GradientPreset {
-    let start: Color
-    let end: Color
-    let angle: Double
-}
-private let gradientPresets: [GradientPreset] = [
-    GradientPreset(
-        start: Color(red: 0.99, green: 0.56, blue: 0.56),
-        end: Color(red: 0.99, green: 0.35, blue: 0.65), angle: 135),
-    GradientPreset(
-        start: Color(red: 0.60, green: 0.90, blue: 0.72),
-        end: Color(red: 0.18, green: 0.80, blue: 0.44), angle: 135),
-    GradientPreset(
-        start: Color(red: 0.54, green: 0.63, blue: 1.00),
-        end: Color(red: 0.29, green: 0.27, blue: 0.92), angle: 135),
-    GradientPreset(
-        start: Color(red: 0.89, green: 0.70, blue: 1.00),
-        end: Color(red: 0.89, green: 0.40, blue: 0.87), angle: 135),
-    GradientPreset(
-        start: Color(red: 0.51, green: 0.86, blue: 0.99),
-        end: Color(red: 0.24, green: 0.63, blue: 0.96), angle: 135),
-    GradientPreset(
-        start: Color(red: 0.98, green: 0.55, blue: 0.47),
-        end: Color(red: 0.89, green: 0.22, blue: 0.46), angle: 135),
-]
-
-// Angle helpers for preview
-private func startPointForAngle(_ angle: Double) -> UnitPoint {
-    let radians = angle * .pi / 180
-    let dx = cos(radians)
-    let dy = sin(radians)
-    let sx = (1 - dx) / 2
-    let sy = (1 - dy) / 2
-    return UnitPoint(x: sx, y: sy)
-}
-private func endPointForAngle(_ angle: Double) -> UnitPoint {
-    let radians = angle * .pi / 180
-    let dx = cos(radians)
-    let dy = sin(radians)
-    let ex = (1 + dx) / 2
-    let ey = (1 + dy) / 2
-    return UnitPoint(x: ex, y: ey)
-}
 
 // MARK: - Size reporting for resizable sheets
 private struct SizePreferenceKey: PreferenceKey {
