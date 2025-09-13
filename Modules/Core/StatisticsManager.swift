@@ -50,11 +50,6 @@ class StatisticsManager {
     
     // MARK: - Public Methods
     
-    func recordBreakScheduled(type: StatisticsBreakType, scheduledTime: Date) {
-        // For scheduled breaks, we don't record them until they're taken or skipped
-        // This is because scheduled breaks from repeating timers would create too many entries
-    }
-    
     func recordBreakTaken(type: StatisticsBreakType, scheduledTime: Date, actualTime: Date, duration: TimeInterval) {
         let event = BreakEvent(
             id: UUID(),

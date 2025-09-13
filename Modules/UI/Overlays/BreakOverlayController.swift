@@ -113,7 +113,7 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
         case .water:
             return "Take a sip of water"
         case .custom:
-            return "Take a short break"
+            return "Break time!"
         }
     }
 

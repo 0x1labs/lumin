@@ -170,6 +170,10 @@ class BreakManager {
     
     // State
     var isOnBreak = false
+    private var breakStartTime: Date?
+    private var breakType: StatisticsBreakType?
+    private var breakDurationValue: TimeInterval?
+    private var breakRecorded = false
     
     private init() {
         print("Lumin: Initializing BreakManager")
@@ -204,7 +208,7 @@ class BreakManager {
         print("Lumin: Starting \(type.rawValue) break for \(duration) seconds")
         isOnBreak = true
         
-        // Record that a break is being taken
+        // Store break information for statistics recording
         let startTime = Date()
         let breakEventType: StatisticsBreakType
         switch type {
@@ -218,13 +222,16 @@ class BreakManager {
             // For custom breaks, we'll need to handle this differently
             breakEventType = .custom("Unknown")
         }
-
+        
+        self.breakStartTime = startTime
+        self.breakType = breakEventType
+        self.breakDurationValue = duration
+        self.breakRecorded = false
+        
         print("Lumin: Creating BreakOverlayController with breakType: \(type)")
         breakOverlayController = BreakOverlayController(breakType: type, duration: duration, onSkip: {
             print("Lumin: Break skipped by user")
-            // Record that the break was skipped
-            StatisticsManager.shared.recordBreakSkipped(type: breakEventType, scheduledTime: startTime)
-            self.endBreak(type: type)
+            self.endBreak(type: type, skipped: true)
         })
         print("Lumin: Showing BreakOverlayController")
         breakOverlayController?.show()
@@ -249,14 +256,7 @@ class BreakManager {
         print("Lumin: Scheduling break end in \(adjustedDuration) seconds")
         DispatchQueue.main.asyncAfter(deadline: .now() + adjustedDuration) {
             print("Lumin: Break duration elapsed, ending break")
-            // Record that the break was completed
-            StatisticsManager.shared.recordBreakTaken(
-                type: breakEventType, 
-                scheduledTime: startTime, 
-                actualTime: Date(), 
-                duration: duration
-            )
-            self.endBreak(type: type)
+            self.endBreak(type: type, skipped: false)
         }
     }
 
@@ -269,17 +269,20 @@ class BreakManager {
         print("Lumin: Starting custom break \(custom.name) for \(custom.duration) seconds")
         isOnBreak = true
         
-        // Record that a custom break is being taken
+        // Store break information for statistics recording
         let startTime = Date()
         let breakEventType = StatisticsBreakType.custom(custom.name)
+        
+        self.breakStartTime = startTime
+        self.breakType = breakEventType
+        self.breakDurationValue = custom.duration
+        self.breakRecorded = false
 
         breakOverlayController = BreakOverlayController(customTitle: custom.name,
                                                         customIconSystemName: custom.iconSystemName,
                                                         duration: custom.duration, onSkip: {
             print("Lumin: Custom break skipped by user")
-            // Record that the custom break was skipped
-            StatisticsManager.shared.recordBreakSkipped(type: breakEventType, scheduledTime: startTime)
-            self.endCustomBreak(custom)
+            self.endCustomBreak(custom, skipped: true)
         })
         breakOverlayController?.show()
 
@@ -288,23 +291,38 @@ class BreakManager {
         let adjustedDuration = max(1.0, custom.duration)
         DispatchQueue.main.asyncAfter(deadline: .now() + adjustedDuration) {
             print("Lumin: Custom break duration elapsed, ending break")
-            // Record that the custom break was completed
-            StatisticsManager.shared.recordBreakTaken(
-                type: breakEventType, 
-                scheduledTime: startTime, 
-                actualTime: Date(), 
-                duration: custom.duration
-            )
-            self.endCustomBreak(custom)
+            self.endCustomBreak(custom, skipped: false)
         }
     }
     
-    private func endBreak(type: BreakType) {
-        Logger.debug("\(type.rawValue) break ended")
+    private func endBreak(type: BreakType, skipped: Bool = false) {
+        Logger.debug("\(type.rawValue) break ended, skipped: \(skipped)")
+        
+        // Record statistics if not already recorded
+        if !breakRecorded, let breakType = self.breakType, let startTime = self.breakStartTime {
+            if skipped {
+                StatisticsManager.shared.recordBreakSkipped(type: breakType, scheduledTime: startTime)
+            } else {
+                StatisticsManager.shared.recordBreakTaken(
+                    type: breakType,
+                    scheduledTime: startTime,
+                    actualTime: Date(),
+                    duration: breakDurationValue ?? 0
+                )
+            }
+            breakRecorded = true
+        }
+        
         isOnBreak = false
         notify(title: "\(type.rawValue) Break Ended", subtitle: "Your \(type.rawValue) break is over.")
         breakOverlayController?.close()
         breakOverlayController = nil
+
+        // Clear break information
+        self.breakStartTime = nil
+        self.breakType = nil
+        self.breakDurationValue = nil
+        self.breakRecorded = false
 
         // Restart only the corresponding timer
         switch type {
@@ -320,12 +338,35 @@ class BreakManager {
         }
     }
 
-    private func endCustomBreak(_ custom: CustomBreak) {
-        Logger.debug("Custom break ended: \(custom.name)")
+    private func endCustomBreak(_ custom: CustomBreak, skipped: Bool = false) {
+        Logger.debug("Custom break ended: \(custom.name), skipped: \(skipped)")
+        
+        // Record statistics if not already recorded
+        if !breakRecorded, let breakType = self.breakType, let startTime = self.breakStartTime {
+            if skipped {
+                StatisticsManager.shared.recordBreakSkipped(type: breakType, scheduledTime: startTime)
+            } else {
+                StatisticsManager.shared.recordBreakTaken(
+                    type: breakType,
+                    scheduledTime: startTime,
+                    actualTime: Date(),
+                    duration: breakDurationValue ?? 0
+                )
+            }
+            breakRecorded = true
+        }
+        
         isOnBreak = false
         notify(title: "\(custom.name) Ended", subtitle: "Your break is over.")
         breakOverlayController?.close()
         breakOverlayController = nil
+        
+        // Clear break information
+        self.breakStartTime = nil
+        self.breakType = nil
+        self.breakDurationValue = nil
+        self.breakRecorded = false
+        
         restartCustomTimer(for: custom)
     }
     
@@ -430,8 +471,6 @@ class BreakManager {
         // Start a new regular break timer with the break interval
         let regular = Timer(timeInterval: breakInterval, repeats: true) { _ in
             Logger.debug("Regular break timer fired")
-            // Record that a regular break is scheduled
-            StatisticsManager.shared.recordBreakScheduled(type: .regular, scheduledTime: Date())
             self.handleBreak(type: .regular, duration: self.breakDuration)
         }
         regular.tolerance = breakInterval * 0.1
@@ -446,8 +485,6 @@ class BreakManager {
         microBreakTimer?.invalidate()
         let micro = Timer(timeInterval: microBreakInterval, repeats: true) { _ in
             Logger.debug("Micro break timer fired")
-            // Record that a micro break is scheduled
-            StatisticsManager.shared.recordBreakScheduled(type: .micro, scheduledTime: Date())
             self.handleBreak(type: .micro, duration: self.microBreakDuration)
         }
         micro.tolerance = microBreakInterval * 0.1
@@ -462,8 +499,6 @@ class BreakManager {
         waterBreakTimer?.invalidate()
         let water = Timer(timeInterval: waterBreakInterval, repeats: true) { _ in
             Logger.debug("Water break timer fired")
-            // Record that a water break is scheduled
-            StatisticsManager.shared.recordBreakScheduled(type: .water, scheduledTime: Date())
             self.handleBreak(type: .water, duration: self.waterBreakDuration)
         }
         water.tolerance = waterBreakInterval * 0.1
@@ -581,8 +616,6 @@ class BreakManager {
         customIndex[custom.id] = custom
         let t = Timer(timeInterval: custom.interval, repeats: true) { [weak self] _ in
             guard let self = self else { return }
-            // Record that a custom break is scheduled
-            StatisticsManager.shared.recordBreakScheduled(type: .custom(custom.name), scheduledTime: Date())
             self.handleCustomBreak(custom)
         }
         t.tolerance = custom.interval * 0.1

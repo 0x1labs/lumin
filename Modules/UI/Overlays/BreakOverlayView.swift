@@ -9,6 +9,19 @@ struct BreakOverlayView: View {
     let customIconSystemName: String?
     let customTitle: String?
     let onSkip: () -> Void
+    @AppStorage("overlayBackgroundColor") private var overlayBackgroundColor = "blue"
+    
+    init(breakType: BreakType, duration: TimeInterval, controller: BreakOverlayController, 
+         message: String, customIconSystemName: String?, customTitle: String?, 
+         onSkip: @escaping () -> Void) {
+        self.breakType = breakType
+        self.duration = duration
+        self.controller = controller
+        self.message = message
+        self.customIconSystemName = customIconSystemName
+        self.customTitle = customTitle
+        self.onSkip = onSkip
+    }
     
     var body: some View {
         ZStack {
@@ -16,59 +29,21 @@ struct BreakOverlayView: View {
             VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
                 .ignoresSafeArea()
             
-            // Semi-transparent overlay
-            Rectangle()
-                .fill(Color.black.opacity(0.3))
+            // Semi-transparent overlay background
+            overlayBackground
                 .ignoresSafeArea()
             
             // Content
             VStack(spacing: 40) {
-                // Break type icon and message
+                // Break type message
                 VStack(spacing: 25) {
-                    Group {
-                        switch breakType {
-                        case .regular:
-                            Image(systemName: "eye")
-                                .font(.system(size: 100))
-                                .foregroundColor(.white)
-                        case .micro:
-                            Image(systemName: "eye")
-                                .font(.system(size: 100))
-                                .foregroundColor(.white)
-                        case .water:
-                            Image(systemName: "drop")
-                                .font(.system(size: 100))
-                                .foregroundColor(.white)
-                        case .custom:
-                            Image(systemName: customIconSystemName ?? "star")
-                                .font(.system(size: 100))
-                                .foregroundColor(.white)
-                        }
-                    }
-                    .frame(width: 160, height: 160)
-                    .background(
-                        Group {
-                            switch breakType {
-                            case .regular:
-                                Color.blue
-                            case .micro:
-                                Color.orange
-                            case .water:
-                                Color.teal
-                            case .custom:
-                                Color.pink
-                            }
-                        }
-                    )
-                    .clipShape(Circle())
-                    .shadow(radius: 10)
-                    
                     Text(customTitle ?? message)
                         .font(.system(size: 32, weight: .bold))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
                 }
+                .frame(maxWidth: .infinity, alignment: .center)
                 
                 // Countdown timer
                 VStack(spacing: 15) {
@@ -90,16 +65,42 @@ struct BreakOverlayView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 40)
                         .padding(.vertical, 20)
-                        .background(Color.accentColor)
-                        .clipShape(Capsule())
-                        .shadow(radius: 5)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 30)
+                                .stroke(Color.white.opacity(0.5), lineWidth: 2)
+                        )
                 }
                 .buttonStyle(PlainButtonStyle())
                 .keyboardShortcut(.cancelAction)
             }
             .padding(60)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
         .onAppear { }
+    }
+    
+    private var overlayBackground: AnyView {
+        let baseOpacity: Double = 0.9 // Fixed opacity for overlay background
+        
+        let backgroundView: AnyView
+        // Gradient background
+        switch overlayBackgroundColor {
+        case "blue": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.blue.opacity(baseOpacity), Color.purple.opacity(baseOpacity * 0.8)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        case "green": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.green.opacity(baseOpacity), Color.blue.opacity(baseOpacity * 0.8)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        case "orange": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.orange.opacity(baseOpacity), Color.pink.opacity(baseOpacity * 0.8)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        case "purple": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.purple.opacity(baseOpacity), Color.pink.opacity(baseOpacity * 0.8)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        case "red": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.red.opacity(baseOpacity), Color.orange.opacity(baseOpacity * 0.8)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        case "pastel 1": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.pink.opacity(baseOpacity * 0.7), Color.blue.opacity(baseOpacity * 0.7)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        case "pastel 2": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.yellow.opacity(baseOpacity * 0.7), Color.green.opacity(baseOpacity * 0.7)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        case "pastel 3": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.purple.opacity(baseOpacity * 0.7), Color.pink.opacity(baseOpacity * 0.7)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        case "frosted glass": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.white.opacity(baseOpacity * 0.3), Color.white.opacity(baseOpacity * 0.1)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        case "frosted glass black": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.black.opacity(baseOpacity * 0.3), Color.black.opacity(baseOpacity * 0.1)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        case "sunset": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.orange.opacity(baseOpacity), Color.pink.opacity(baseOpacity), Color.purple.opacity(baseOpacity * 0.8)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        case "ocean": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.blue.opacity(baseOpacity * 0.8), Color.teal.opacity(baseOpacity * 0.8)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        default: backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.blue.opacity(baseOpacity), Color.purple.opacity(baseOpacity * 0.8)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        }
+        
+        return backgroundView
     }
     
     private func formatTime(_ interval: TimeInterval) -> String {
