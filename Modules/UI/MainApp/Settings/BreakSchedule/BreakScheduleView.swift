@@ -20,11 +20,6 @@ struct BreakScheduleView: View {
     @State private var newCustomIcon: String = "pills"
     @State private var newCustomInterval: TimeInterval = 3600
     @State private var newCustomDuration: TimeInterval = 20
-    @State private var newCustomColor: Color = .accentColor
-    @State private var newUseGradient: Bool = false
-    @State private var newGradientStart: Color = .accentColor
-    @State private var newGradientEnd: Color = .blue
-    @State private var newGradientAngle: Double = 90
     @State private var toastMessage: String? = nil
     @AppStorage("addCustomSheetWidth") private var sheetWidth: Double = 920
     @AppStorage("addCustomSheetHeight") private var sheetHeight: Double = 640
@@ -310,132 +305,7 @@ private let customIconOptions: [String] = [
     // Energy / focus
     "bolt", "bolt.fill", "flame", "flame.fill",
 ]
-#if false  // Legacy sheet kept for reference; excluded from build
-    private struct AddCustomBreakSheet: View {
-        @Binding var name: String
-        @Binding var icon: String
-        @Binding var interval: TimeInterval
-        @Binding var duration: TimeInterval
-        @Binding var color: Color
-        @Binding var useGradient: Bool
-        @Binding var gradientStart: Color
-        @Binding var gradientEnd: Color
-        @Binding var gradientAngle: Double
-        var onCancel: () -> Void
-        var onSave: () -> Void
 
-        var body: some View {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("New Custom Break")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-
-                HStack {
-                    Text("Name")
-                        .frame(width: 120, alignment: .leading)
-                    TextField("e.g. Medicines", text: $name)
-                }
-
-                HStack(alignment: .top) {
-                    Text("Icon")
-                        .frame(width: 120, alignment: .leading)
-                    ScrollView(.horizontal, showsIndicators: true) {
-                        HStack(spacing: 12) {
-                            ForEach(customIconOptions, id: \.self) { option in
-                                Button(action: { icon = option }) {
-                                    Image(systemName: option)
-                                        .frame(width: 32, height: 32)
-                                        .padding(8)
-                                        .background(
-                                            icon == option
-                                                ? Color.accentColor.opacity(0.2) : Color.clear
-                                        )
-                                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                    .frame(height: 56)
-                }
-
-                HStack {
-                    Text("Interval")
-                        .frame(width: 120, alignment: .leading)
-                    Slider(value: $interval, in: 300...14400, step: 60) { Text("Interval") }
-                    Text(formatTimeLocal(interval))
-                        .foregroundColor(.secondary)
-                        .monospacedDigit()
-                        .frame(width: 120, alignment: .trailing)
-                }
-
-                HStack {
-                    Text("Duration")
-                        .frame(width: 120, alignment: .leading)
-                    Slider(value: $duration, in: 10...900, step: 5) { Text("Duration") }
-                    Text(formatTimeLocal(duration))
-                        .foregroundColor(.secondary)
-                        .monospacedDigit()
-                        .frame(width: 120, alignment: .trailing)
-                }
-
-                HStack {
-                    Text("Color")
-                        .frame(width: 120, alignment: .leading)
-                    ColorPicker("Color", selection: $color)
-                        .labelsHidden()
-                    Spacer()
-                }
-
-                Toggle("Use Gradient", isOn: $useGradient)
-
-                if useGradient {
-                    HStack(spacing: 16) {
-                        HStack {
-                            Text("Start")
-                                .frame(width: 120, alignment: .leading)
-                            ColorPicker("Start", selection: $gradientStart).labelsHidden()
-                        }
-                        HStack {
-                            Text("End")
-                                .frame(width: 60, alignment: .leading)
-                            ColorPicker("End", selection: $gradientEnd).labelsHidden()
-                        }
-                        Spacer()
-                    }
-                    HStack {
-                        Text("Angle")
-                            .frame(width: 120, alignment: .leading)
-                        Slider(value: $gradientAngle, in: 0...360, step: 1)
-                        Text("\(Int(gradientAngle))°").monospacedDigit().foregroundColor(.secondary)
-                    }
-                }
-
-                HStack {
-                    Spacer()
-                    Button("Cancel", role: .cancel, action: onCancel)
-                    Button("Save", action: onSave).buttonStyle(.borderedProminent)
-                }
-            }
-            .padding()
-            .onAppear {
-                if name.isEmpty { name = "" }
-            }
-        }
-    }
-
-    private func formatTimeLocal(_ interval: TimeInterval) -> String {
-        let minutes = Int(interval) / 60
-        let seconds = Int(interval) % 60
-        if minutes > 0 && seconds > 0 {
-            return "\(minutes) min \(seconds) sec"
-        } else if minutes > 0 {
-            return "\(minutes) min"
-        } else {
-            return "\(seconds) sec"
-        }
-    }
-#endif
 
 extension BreakScheduleView {
     fileprivate func resetNewCustomFields() {
@@ -443,11 +313,6 @@ extension BreakScheduleView {
         newCustomIcon = customIconOptions.first ?? "pills"
         newCustomInterval = 3600
         newCustomDuration = 20
-        newCustomColor = .accentColor
-        newUseGradient = false
-        newGradientStart = .accentColor
-        newGradientEnd = .blue
-        newGradientAngle = 90
     }
 
     fileprivate func applyCustomUpdate(_ updated: CustomBreak) {
@@ -656,36 +521,6 @@ private let integerFormatter: NumberFormatter = {
     return f
 }()
 
-func colorFromHex(_ hex: String?) -> Color {
-    guard let hex = hex?.trimmingCharacters(in: .whitespacesAndNewlines), !hex.isEmpty else {
-        return .accentColor
-    }
-    var cleaned = hex
-    if cleaned.hasPrefix("#") { cleaned.removeFirst() }
-    var int: UInt64 = 0
-    guard Scanner(string: cleaned).scanHexInt64(&int) else { return .accentColor }
-    let a: UInt64
-    let r: UInt64
-    let g: UInt64
-    let b: UInt64
-    switch cleaned.count {
-    case 8:
-        a = (int & 0xff00_0000) >> 24
-        r = (int & 0x00ff_0000) >> 16
-        g = (int & 0x0000_ff00) >> 8
-        b = (int & 0x0000_00ff)
-    case 6:
-        a = 255
-        r = (int & 0x00ff_0000) >> 16
-        g = (int & 0x0000_ff00) >> 8
-        b = (int & 0x0000_00ff)
-    default:
-        return .accentColor
-    }
-    return Color(
-        .sRGB, red: Double(r) / 255.0, green: Double(g) / 255.0, blue: Double(b) / 255.0,
-        opacity: Double(a) / 255.0)
-}
 
 // MARK: - Add Custom Break V2 (Option 3 layout)
 struct AddCustomBreakSheetV2: View {
@@ -693,11 +528,6 @@ struct AddCustomBreakSheetV2: View {
     @Binding var icon: String
     @Binding var interval: TimeInterval
     @Binding var duration: TimeInterval
-    @Binding var color: Color
-    @Binding var useGradient: Bool
-    @Binding var gradientStart: Color
-    @Binding var gradientEnd: Color
-    @Binding var gradientAngle: Double
     var onCancel: () -> Void
     var onSave: () -> Void
 
@@ -711,11 +541,6 @@ struct AddCustomBreakSheetV2: View {
         self._icon = icon
         self._interval = interval
         self._duration = duration
-        self._color = .constant(.accentColor)
-        self._useGradient = .constant(false)
-        self._gradientStart = .constant(.accentColor)
-        self._gradientEnd = .constant(.blue)
-        self._gradientAngle = .constant(90)
         self.onCancel = onCancel
         self.onSave = onSave
     }
@@ -765,78 +590,6 @@ struct AddCustomBreakSheetV2: View {
                             title: "", systemImage: "timer", accent: .teal, unit: .seconds,
                             units: [.seconds, .minutes], value: $duration, rangeSeconds: 5...900,
                             stepSeconds: 5, sliderWidth: 420, titleAbove: "Duration")
-                    }
-                }
-
-                // Right column - Color / Gradient
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text("Color / Gradient").font(.subheadline)
-                        Spacer()
-                        Toggle("Gradient", isOn: $useGradient).labelsHidden().toggleStyle(.switch)
-                    }
-                    ZStack(alignment: .topLeading) {
-                        // Gradient panel
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack(spacing: 10) {
-                                VStack(alignment: .leading) {
-                                    Text("Start").font(.caption).foregroundColor(.secondary)
-                                    ColorPicker("Start", selection: $gradientStart).labelsHidden()
-                                }
-                                VStack(alignment: .leading) {
-                                    Text("End").font(.caption).foregroundColor(.secondary)
-                                    ColorPicker("End", selection: $gradientEnd).labelsHidden()
-                                }
-                            }
-                            HStack(spacing: 10) {
-                                Text("Angle").font(.caption).foregroundColor(.secondary)
-                                Slider(value: $gradientAngle, in: 0...360, step: 1)
-                                Text("\(Int(gradientAngle))°").monospacedDigit().foregroundColor(
-                                    .secondary)
-                            }
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [gradientStart, gradientEnd]),
-                                        startPoint: startPointForAngle(gradientAngle),
-                                        endPoint: endPointForAngle(gradientAngle))
-                                )
-                                .frame(width: 240, height: 140)
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Presets").font(.caption).foregroundColor(.secondary)
-                                LazyVGrid(
-                                    columns: [
-                                        GridItem(.fixed(44)), GridItem(.fixed(44)),
-                                        GridItem(.fixed(44)), GridItem(.fixed(44)),
-                                        GridItem(.fixed(44)),
-                                    ], spacing: 8
-                                ) {
-                                    ForEach(Self.gradientPresets.indices, id: \.self) { i in
-                                        let p = Self.gradientPresets[i]
-                                        Button(action: {
-                                            useGradient = true
-                                            gradientStart = p.start
-                                            gradientEnd = p.end
-                                            gradientAngle = p.angle
-                                        }) {
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .fill(
-                                                    LinearGradient(
-                                                        gradient: Gradient(colors: [p.start, p.end]
-                                                        ), startPoint: startPointForAngle(p.angle),
-                                                        endPoint: endPointForAngle(p.angle))
-                                                )
-                                                .frame(width: 44, height: 28)
-                                        }.buttonStyle(.plain)
-                                    }
-                                }
-                            }
-                        }
-                        .opacity(useGradient ? 1 : 0)
-                        .allowsHitTesting(useGradient)
-
-                        // Solid color panel
-                        // Solid color panel removed
                     }
                 }
             }

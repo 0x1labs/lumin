@@ -10,11 +10,6 @@ struct CustomBreaksView: View {
     @State private var interval: TimeInterval = 3600
     @State private var duration: TimeInterval = 20
     @State private var toast: String? = nil
-    @State private var color: Color = .accentColor
-    @State private var useGradient: Bool = false
-    @State private var gradientStart: Color = .accentColor
-    @State private var gradientEnd: Color = .blue
-    @State private var gradientAngle: Double = 90
 
     var body: some View {
         ScrollView {
