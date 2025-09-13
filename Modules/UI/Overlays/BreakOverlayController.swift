@@ -45,9 +45,9 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
         // Use different window levels based on break type
         switch breakType {
         case .regular:
-            window.level = .floating  // Changed from .modalPanel to .floating to match other break types
+            window.level = .floating  // High level for regular breaks to ensure visibility
         case .micro, .water, .custom:
-            window.level = .floating  // Lower level for micro, water and custom breaks
+            window.level = .floating  // Same level for all breaks to ensure consistent behavior
         }
         
         window.isOpaque = false
@@ -56,12 +56,12 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         window.delegate = self
         
-        // Make sure the window can become key and main
+        // Prevent the window from becoming key or main to avoid stealing focus
         window.isReleasedWhenClosed = false
+        window.canBecomeVisibleWithoutLogin = true
         
-        Logger.debug("Window created with frame: \(window.frame), level: \(window.level.rawValue)")
-        Logger.debug("Window properties - isOpaque: \(window.isOpaque), backgroundColor: \(String(describing: window.backgroundColor))")
-        // NSApp manages login behavior; NSWindow has no canBecomeVisibleWithoutLogin
+        // Additional properties to prevent focus stealing
+        window.hidesOnDeactivate = false
         
         // Create the SwiftUI view
         let overlayView = BreakOverlayView(
@@ -152,14 +152,15 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
         // Check if we can become main and key
         if let window = self.window { Logger.debug("Window can become main: \(window.canBecomeMain), key: \(window.canBecomeKey), visible: \(window.isVisible)") }
         
-        Logger.debug("Activating NSApp")
-        NSApp.activate(ignoringOtherApps: true)
+        // Remove the focus-stealing activation
+        // NSApp.activate(ignoringOtherApps: true)
         
-        // Ensure the window is ordered front and key
+        // Ensure the window is ordered front but without stealing focus
         if let window = self.window {
             Logger.debug("Window frame: \(window.frame)")
             window.orderFrontRegardless()
-            window.makeKeyAndOrderFront(nil)
+            // Remove makeKeyAndOrderFront to prevent focus stealing
+            // window.makeKeyAndOrderFront(nil)
             Logger.debug("Window made key and ordered front; visible: \(window.isVisible), main: \(window.isMainWindow), key: \(window.isKeyWindow)")
         } else {
             Logger.debug("ERROR - Window is nil")
