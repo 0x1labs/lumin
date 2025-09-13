@@ -15,7 +15,6 @@ class SettingsViewModel {
     var microBreaksEnabled: Bool = true
     var waterBreaksEnabled: Bool = true
     var startAtLogin: Bool = false
-    var notificationStyle: NotificationStyle = .banner
     var breakType: BreakType = .regular
     var naturalBreakDetection: Bool = false
     
@@ -27,7 +26,7 @@ class SettingsViewModel {
     
     /// Loads settings from UserDefaults
     func loadSettings() {
-        workInterval = SettingsManager.shared.workInterval
+        workInterval = SettingsManager.shared.breakInterval
         breakDuration = SettingsManager.shared.breakDuration
         microBreakInterval = SettingsManager.shared.microBreakInterval
         microBreakDuration = SettingsManager.shared.microBreakDuration
@@ -37,7 +36,6 @@ class SettingsViewModel {
         microBreaksEnabled = SettingsManager.shared.microBreaksEnabled
         waterBreaksEnabled = SettingsManager.shared.waterBreaksEnabled
         startAtLogin = SettingsManager.shared.startAtLogin
-        notificationStyle = SettingsManager.shared.notificationStyle
         breakType = SettingsManager.shared.breakType
         naturalBreakDetection = SettingsManager.shared.naturalBreakDetection
         
@@ -47,7 +45,7 @@ class SettingsViewModel {
     /// Saves settings to UserDefaults
     func saveSettings() {
         // Update settings manager
-        SettingsManager.shared.workInterval = workInterval
+        SettingsManager.shared.breakInterval = workInterval
         SettingsManager.shared.breakDuration = breakDuration
         SettingsManager.shared.microBreakInterval = microBreakInterval
         SettingsManager.shared.microBreakDuration = microBreakDuration
@@ -57,7 +55,6 @@ class SettingsViewModel {
         SettingsManager.shared.microBreaksEnabled = microBreaksEnabled
         SettingsManager.shared.waterBreaksEnabled = waterBreaksEnabled
         SettingsManager.shared.startAtLogin = startAtLogin
-        SettingsManager.shared.notificationStyle = notificationStyle
         SettingsManager.shared.breakType = breakType
         SettingsManager.shared.naturalBreakDetection = naturalBreakDetection
         
@@ -76,7 +73,6 @@ class SettingsViewModel {
         microBreaksEnabled = true
         waterBreaksEnabled = true
         startAtLogin = false
-        notificationStyle = .banner
         breakType = .regular
         naturalBreakDetection = false
         

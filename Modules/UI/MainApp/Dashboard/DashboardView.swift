@@ -6,6 +6,7 @@ struct DashboardView: View {
     @State private var breakManager = BreakManager.shared
     @State private var timeUntilNextBreak: TimeInterval = 0
     @State private var nextBreakType: String = ""
+    @State private var nextCustomIcon: String? = nil
     @State private var countdownTimer: Timer?
     
     var body: some View {
@@ -52,19 +53,24 @@ struct DashboardView: View {
                         HStack {
                             // Icon based on break type
                             Group {
-                                switch nextBreakType {
-                                case "Regular Break":
-                                    Image(systemName: "cup.and.saucer")
-                                        .foregroundColor(.blue)
-                                case "Micro Break":
-                                    Image(systemName: "eye")
-                                        .foregroundColor(.orange)
-                                case "Water Break":
-                                    Image(systemName: "drop")
-                                        .foregroundColor(.teal)
-                                default:
-                                    Image(systemName: "clock")
-                                        .foregroundColor(.gray)
+                                if let customIcon = nextCustomIcon {
+                                    Image(systemName: customIcon)
+                                        .foregroundColor(.accentColor)
+                                } else {
+                                    switch nextBreakType {
+                                    case "Regular Break":
+                                        Image(systemName: "cup.and.saucer")
+                                            .foregroundColor(.blue)
+                                    case "Micro Break":
+                                        Image(systemName: "eye")
+                                            .foregroundColor(.orange)
+                                    case "Water Break":
+                                        Image(systemName: "drop")
+                                            .foregroundColor(.teal)
+                                    default:
+                                        Image(systemName: "clock")
+                                            .foregroundColor(.gray)
+                                    }
                                 }
                             }
                             
@@ -280,14 +286,34 @@ struct DashboardView: View {
                 breakType = "Water Break"
             }
         }
+
+        // Check custom breaks
+        let customUpcoming = breakManager.nextCustomBreaks
+        if let nearest = customUpcoming.min(by: { $0.date < $1.date }), nearest.date > now {
+            if let currentNext = nextBreakDate {
+                if nearest.date < currentNext {
+                    nextBreakDate = nearest.date
+                    breakType = nearest.custom.name
+                    nextCustomIcon = nearest.custom.iconSystemName
+                }
+            } else {
+                nextBreakDate = nearest.date
+                breakType = nearest.custom.name
+                nextCustomIcon = nearest.custom.iconSystemName
+            }
+        }
         
         // Update the UI with the time until the next break
         if let nextBreakDate = nextBreakDate {
             timeUntilNextBreak = nextBreakDate.timeIntervalSince(now)
             nextBreakType = breakType
+            if breakType != "Regular Break" && breakType != "Micro Break" && breakType != "Water Break" && nextCustomIcon == nil {
+                nextCustomIcon = "star"
+            }
         } else {
             timeUntilNextBreak = 0
             nextBreakType = ""
+            nextCustomIcon = nil
         }
     }
     
@@ -348,6 +374,18 @@ struct DashboardView: View {
                 timeUntil: timeString
             ))
             timeIntervals["Water Break"] = timeUntil
+        }
+        
+        // Add custom breaks
+        for entry in breakManager.nextCustomBreaks {
+            let date = entry.date
+            if date > now {
+                let timeUntil = date.timeIntervalSince(now)
+                let timeString = formatTimeUntil(timeUntil)
+                let title = entry.custom.name
+                breakTimes.append((type: title, timeUntil: timeString))
+                timeIntervals[title] = timeUntil
+            }
         }
         
         // Sort by time until next break (shortest first)

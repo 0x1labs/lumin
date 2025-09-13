@@ -15,7 +15,7 @@ struct HelpView: View {
                 Text("Getting Started")
                     .font(.headline)
                 
-                Text("Lumin helps you take regular breaks to reduce eye strain and stay productive. Configure your break schedule in the Break Schedule section, and customize notifications in General settings.")
+                Text("Lumin helps you take regular breaks to reduce eye strain and stay productive. Configure your break schedule in the Break Schedule section.")
             }
             .padding()
             .background(.quaternary.opacity(0.2))
@@ -24,8 +24,7 @@ struct HelpView: View {
             VStack(alignment: .leading, spacing: 15) {
                 Text("Common Issues")
                     .font(.headline)
-                
-                Text("If you're not receiving notifications, check that Lumin has permission to send notifications in System Settings > Notifications.")
+                Text("If something isn't working as expected, please let us know.")
             }
             .padding()
             .background(.quaternary.opacity(0.2))
@@ -34,8 +33,8 @@ struct HelpView: View {
             VStack(alignment: .leading, spacing: 15) {
                 Text("Contact Support")
                     .font(.headline)
-                
-                Text("For additional help, contact our support team at support@luminapp.com")
+                Text("Create an issue on GitHub with steps to reproduce and screenshots if possible.")
+                Link("Open GitHub Issues", destination: URL(string: "https://github.com/0x1labs/lumin/issues/new")!)
             }
             .padding()
             .background(.quaternary.opacity(0.2))

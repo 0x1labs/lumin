@@ -6,28 +6,31 @@ import Observation
 class SettingsManager {
     static let shared = SettingsManager()
     
-    @AppStorage("workInterval") @ObservationIgnored private var _workInterval: TimeInterval = 1200 // 20 minutes
+    @AppStorage("workInterval") @ObservationIgnored private var _breakInterval: TimeInterval = 1200 // 20 minutes
     @AppStorage("breakDuration") @ObservationIgnored private var _breakDuration: TimeInterval = 20  // 20 seconds
     @AppStorage("microBreakInterval") @ObservationIgnored private var _microBreakInterval: TimeInterval = 300 // 5 minutes
     @AppStorage("microBreakDuration") @ObservationIgnored private var _microBreakDuration: TimeInterval = 2  // 2 seconds (shorter duration)
     @AppStorage("waterBreakInterval") @ObservationIgnored private var _waterBreakInterval: TimeInterval = 1800 // 30 minutes
     @AppStorage("waterBreakDuration") @ObservationIgnored private var _waterBreakDuration: TimeInterval = 5  // 5 seconds
     @AppStorage("isEnabled") @ObservationIgnored private var _isEnabled: Bool = true
+    @AppStorage("regularBreaksEnabled") @ObservationIgnored private var _regularBreaksEnabled: Bool = true
     @AppStorage("microBreaksEnabled") @ObservationIgnored private var _microBreaksEnabled: Bool = true
     @AppStorage("waterBreaksEnabled") @ObservationIgnored private var _waterBreaksEnabled: Bool = true
+    @AppStorage("customBreaksEnabled") @ObservationIgnored private var _customBreaksEnabled: Bool = true
     @AppStorage("startAtLogin") @ObservationIgnored private var _startAtLogin: Bool = false
-    @AppStorage("notificationStyle") @ObservationIgnored private var _notificationStyle: NotificationStyle = .banner
     @AppStorage("breakType") @ObservationIgnored private var _breakType: BreakType = .regular
     @AppStorage("naturalBreakDetection") @ObservationIgnored private var _naturalBreakDetection: Bool = false
+    @AppStorage("customBreaks") @ObservationIgnored private var _customBreaksData: Data = Data()
+    @ObservationIgnored private var _customBreaksCache: [CustomBreak]? = nil
     
-    var workInterval: TimeInterval {
-        get { _workInterval }
+    var breakInterval: TimeInterval {
+        get { _breakInterval }
         set { 
             guard newValue >= 60 else {
-                ErrorHandler.shared.handleUserInputError(NSError(domain: "Lumin", code: 2001, userInfo: [NSLocalizedDescriptionKey: "Work interval must be at least 1 minute"]))
+                ErrorHandler.shared.handleUserInputError(NSError(domain: "Lumin", code: 2001, userInfo: [NSLocalizedDescriptionKey: "Break interval must be at least 1 minute"]))
                 return
             }
-            _workInterval = newValue 
+            _breakInterval = newValue 
         }
     }
     
@@ -36,6 +39,11 @@ class SettingsManager {
         set { 
             guard newValue >= 1 else {
                 ErrorHandler.shared.handleUserInputError(NSError(domain: "Lumin", code: 2002, userInfo: [NSLocalizedDescriptionKey: "Break duration must be at least 1 second"]))
+                return
+            }
+            // Hard upper bound to prevent extreme values
+            guard newValue <= 3600 else {
+                ErrorHandler.shared.handleUserInputError(NSError(domain: "Lumin", code: 2102, userInfo: [NSLocalizedDescriptionKey: "Break duration cannot exceed 1 hour"]))
                 return
             }
             _breakDuration = newValue 
@@ -60,6 +68,10 @@ class SettingsManager {
                 ErrorHandler.shared.handleUserInputError(NSError(domain: "Lumin", code: 2004, userInfo: [NSLocalizedDescriptionKey: "Micro-break duration must be at least 1 second"]))
                 return
             }
+            guard newValue <= 3600 else {
+                ErrorHandler.shared.handleUserInputError(NSError(domain: "Lumin", code: 2104, userInfo: [NSLocalizedDescriptionKey: "Micro-break duration cannot exceed 1 hour"]))
+                return
+            }
             _microBreakDuration = newValue 
         }
     }
@@ -69,6 +81,10 @@ class SettingsManager {
         set { 
             guard newValue >= 60 else {
                 ErrorHandler.shared.handleUserInputError(NSError(domain: "Lumin", code: 2005, userInfo: [NSLocalizedDescriptionKey: "Water break interval must be at least 1 minute"]))
+                return
+            }
+            guard newValue <= 3600 else {
+                ErrorHandler.shared.handleUserInputError(NSError(domain: "Lumin", code: 2105, userInfo: [NSLocalizedDescriptionKey: "Water break interval cannot exceed 1 hour"]))
                 return
             }
             _waterBreakInterval = newValue 
@@ -82,6 +98,10 @@ class SettingsManager {
                 ErrorHandler.shared.handleUserInputError(NSError(domain: "Lumin", code: 2006, userInfo: [NSLocalizedDescriptionKey: "Water break duration must be at least 1 second"]))
                 return
             }
+            guard newValue <= 3600 else {
+                ErrorHandler.shared.handleUserInputError(NSError(domain: "Lumin", code: 2106, userInfo: [NSLocalizedDescriptionKey: "Water break duration cannot exceed 1 hour"]))
+                return
+            }
             _waterBreakDuration = newValue 
         }
     }
@@ -89,6 +109,11 @@ class SettingsManager {
     var isEnabled: Bool {
         get { _isEnabled }
         set { _isEnabled = newValue }
+    }
+    
+    var regularBreaksEnabled: Bool {
+        get { _regularBreaksEnabled }
+        set { _regularBreaksEnabled = newValue }
     }
     
     var microBreaksEnabled: Bool {
@@ -101,15 +126,16 @@ class SettingsManager {
         set { _waterBreaksEnabled = newValue }
     }
     
+    var customBreaksEnabled: Bool {
+        get { _customBreaksEnabled }
+        set { _customBreaksEnabled = newValue }
+    }
+    
     var startAtLogin: Bool {
         get { _startAtLogin }
         set { _startAtLogin = newValue }
     }
     
-    var notificationStyle: NotificationStyle {
-        get { _notificationStyle }
-        set { _notificationStyle = newValue }
-    }
     
     var breakType: BreakType {
         get { _breakType }
@@ -120,6 +146,32 @@ class SettingsManager {
         get { _naturalBreakDetection }
         set { _naturalBreakDetection = newValue }
     }
+
+    var customBreaks: [CustomBreak] {
+        get {
+            if let cache = _customBreaksCache { return cache }
+            let data = _customBreaksData
+            guard !data.isEmpty else { _customBreaksCache = []; return [] }
+            do {
+                let decoded = try JSONDecoder().decode([CustomBreak].self, from: data)
+                _customBreaksCache = decoded
+                return decoded
+            } catch {
+                Logger.debug("Failed to decode customBreaks: \(error)")
+                _customBreaksCache = []
+                return []
+            }
+        }
+        set {
+            do {
+                let data = try JSONEncoder().encode(newValue)
+                _customBreaksData = data
+                _customBreaksCache = newValue
+            } catch {
+                ErrorHandler.shared.handlePersistenceError(error)
+            }
+        }
+    }
     
     private init() {
         // Load initial settings
@@ -128,16 +180,16 @@ class SettingsManager {
     
     private func loadSettings() {
         // Settings are automatically loaded by @AppStorage
-        Logger.debug("Settings loaded: interval=\(workInterval), break=\(breakDuration), microInterval=\(microBreakInterval), microDuration=\(microBreakDuration), waterInterval=\(waterBreakInterval), waterDuration=\(waterBreakDuration), enabled=\(isEnabled), microEnabled=\(microBreaksEnabled), waterEnabled=\(waterBreaksEnabled), startAtLogin=\(startAtLogin), style=\(notificationStyle), type=\(breakType), natural=\(naturalBreakDetection)")
+        Logger.debug("Settings loaded: interval=\(breakInterval), break=\(breakDuration), microInterval=\(microBreakInterval), microDuration=\(microBreakDuration), waterInterval=\(waterBreakInterval), waterDuration=\(waterBreakDuration), enabled=\(isEnabled), microEnabled=\(microBreaksEnabled), waterEnabled=\(waterBreaksEnabled), startAtLogin=\(startAtLogin), type=\(breakType), natural=\(naturalBreakDetection), customBreaks=\(customBreaks.count)")
     }
     
     func saveSettings() {
         // Settings are automatically saved by @AppStorage
-        Logger.debug("Settings saved: interval=\(workInterval), break=\(breakDuration), microInterval=\(microBreakInterval), microDuration=\(microBreakDuration), waterInterval=\(waterBreakInterval), waterDuration=\(waterBreakDuration), enabled=\(isEnabled), microEnabled=\(microBreaksEnabled), waterEnabled=\(waterBreaksEnabled), startAtLogin=\(startAtLogin), style=\(notificationStyle), type=\(breakType), natural=\(naturalBreakDetection)")
+        Logger.debug("Settings saved: interval=\(breakInterval), break=\(breakDuration), microInterval=\(microBreakInterval), microDuration=\(microBreakDuration), waterInterval=\(waterBreakInterval), waterDuration=\(waterBreakDuration), enabled=\(isEnabled), microEnabled=\(microBreaksEnabled), waterEnabled=\(waterBreaksEnabled), startAtLogin=\(startAtLogin), type=\(breakType), natural=\(naturalBreakDetection), customBreaks=\(customBreaks.count)")
     }
     
     func resetToDefaults() {
-        workInterval = 1200 // 20 minutes
+        breakInterval = 1200 // 20 minutes
         breakDuration = 20  // 20 seconds
         microBreakInterval = 600 // 10 minutes
         microBreakDuration = 2  // 2 seconds
@@ -146,10 +198,12 @@ class SettingsManager {
         isEnabled = true
         microBreaksEnabled = true
         waterBreaksEnabled = true
+        customBreaksEnabled = true
+        regularBreaksEnabled = true
         startAtLogin = false
-        notificationStyle = .banner
         breakType = .regular
         naturalBreakDetection = false
+        customBreaks = []
         
         Logger.debug("Settings reset to defaults")
     }

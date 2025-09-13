@@ -6,6 +6,8 @@ struct BreakOverlayView: View {
     let duration: TimeInterval
     @ObservedObject var controller: BreakOverlayController
     let message: String
+    let customIconSystemName: String?
+    let customTitle: String?
     let onSkip: () -> Void
     
     var body: some View {
@@ -37,6 +39,10 @@ struct BreakOverlayView: View {
                             Image(systemName: "drop")
                                 .font(.system(size: 100))
                                 .foregroundColor(.white)
+                        case .custom:
+                            Image(systemName: customIconSystemName ?? "star")
+                                .font(.system(size: 100))
+                                .foregroundColor(.white)
                         }
                     }
                     .frame(width: 160, height: 160)
@@ -49,13 +55,15 @@ struct BreakOverlayView: View {
                                 Color.orange
                             case .water:
                                 Color.teal
+                            case .custom:
+                                Color.pink
                             }
                         }
                     )
                     .clipShape(Circle())
                     .shadow(radius: 10)
                     
-                    Text(message)
+                    Text(customTitle ?? message)
                         .font(.system(size: 32, weight: .bold))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)

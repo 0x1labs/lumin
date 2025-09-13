@@ -7,6 +7,7 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
     private let duration: TimeInterval
     private let onSkip: () -> Void
     private let selectedMessage: String
+    private let customIconSystemName: String?
     private var startTime: Date = Date()
     private var timer: Timer?
     private var hostingController: NSHostingController<AnyView>?
@@ -18,6 +19,7 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
         self.onSkip = onSkip
         self.displayTimeRemaining = duration
         self.selectedMessage = BreakOverlayController.message(for: breakType)
+        self.customIconSystemName = nil
         
         Logger.debug("Creating BreakOverlayController with breakType: \(breakType), duration: \(duration)")
         
@@ -44,8 +46,8 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
         switch breakType {
         case .regular:
             window.level = .floating  // Changed from .modalPanel to .floating to match other break types
-        case .micro, .water:
-            window.level = .floating  // Lower level for micro and water breaks
+        case .micro, .water, .custom:
+            window.level = .floating  // Lower level for micro, water and custom breaks
         }
         
         window.isOpaque = false
@@ -67,12 +69,35 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
             duration: duration,
             controller: self,
             message: selectedMessage,
+            customIconSystemName: customIconSystemName,
+            customTitle: nil,
             onSkip: { self.skipBreak() }
         )
         
         hostingController = NSHostingController(rootView: AnyView(overlayView))
         self.contentViewController = hostingController
         Logger.debug("BreakOverlayController initialized")
+    }
+
+    // Custom break convenience initializer
+    convenience init(customTitle: String, customIconSystemName: String?, duration: TimeInterval, onSkip: @escaping () -> Void) {
+        self.init(breakType: .custom, duration: duration, onSkip: onSkip)
+        self.setCustom(message: customTitle, iconSystemName: customIconSystemName)
+    }
+
+    private func setCustom(message: String, iconSystemName: String?) {
+        // Rebuild the SwiftUI view with custom parameters
+        let overlayView = BreakOverlayView(
+            breakType: .custom,
+            duration: duration,
+            controller: self,
+            message: message,
+            customIconSystemName: iconSystemName,
+            customTitle: message,
+            onSkip: { self.skipBreak() }
+        )
+        hostingController = NSHostingController(rootView: AnyView(overlayView))
+        self.contentViewController = hostingController
     }
     
     required init?(coder: NSCoder) {
@@ -87,7 +112,33 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
             return "Blink and check posture!"
         case .water:
             return "Take a sip of water"
+        case .custom:
+            return "Take a short break"
         }
+    }
+
+    private static func color(fromHex hex: String?) -> Color? {
+        guard let hex = hex?.trimmingCharacters(in: .whitespacesAndNewlines), !hex.isEmpty else { return nil }
+        var cleaned = hex
+        if cleaned.hasPrefix("#") { cleaned.removeFirst() }
+        var int: UInt64 = 0
+        guard Scanner(string: cleaned).scanHexInt64(&int) else { return nil }
+        let a, r, g, b: UInt64
+        switch cleaned.count {
+        case 8:
+            a = (int & 0xff000000) >> 24
+            r = (int & 0x00ff0000) >> 16
+            g = (int & 0x0000ff00) >> 8
+            b = (int & 0x000000ff)
+        case 6:
+            a = 255
+            r = (int & 0x00ff0000) >> 16
+            g = (int & 0x0000ff00) >> 8
+            b = (int & 0x000000ff)
+        default:
+            return nil
+        }
+        return Color(.sRGB, red: Double(r)/255.0, green: Double(g)/255.0, blue: Double(b)/255.0, opacity: Double(a)/255.0)
     }
     
     func show() {

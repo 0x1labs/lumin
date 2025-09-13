@@ -39,43 +39,6 @@ struct GeneralSettingsView: View {
                 .background(.quaternary.opacity(0.2))
                 .cornerRadius(12)
                 
-                // Notifications section
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("Notifications")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                    
-                    Picker("Notification Style", selection: $viewModel.notificationStyle) {
-                        ForEach(NotificationStyle.allCases, id: \.self) { style in
-                            Text(style.rawValue).tag(style)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .onChange(of: viewModel.notificationStyle) { _, newValue in
-                        SettingsManager.shared.notificationStyle = newValue
-                    }
-                }
-                .padding()
-                .background(.quaternary.opacity(0.2))
-                .cornerRadius(12)
-                
-                // System Integration section
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("System Integration")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                    
-                    Toggle("Natural Break Detection", isOn: $viewModel.naturalBreakDetection)
-                        .onChange(of: viewModel.naturalBreakDetection) { _, newValue in
-                            SettingsManager.shared.naturalBreakDetection = newValue
-                        }
-                        .toggleStyle(.switch)
-                        .controlSize(.large)
-                }
-                .padding()
-                .background(.quaternary.opacity(0.2))
-                .cornerRadius(12)
-                
                 // Advanced section
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Advanced")
@@ -95,7 +58,7 @@ struct GeneralSettingsView: View {
                 .background(.quaternary.opacity(0.2))
                 .cornerRadius(12)
                 
-                Text("Configure general application settings like startup behavior and notifications.")
+                Text("Configure general application settings like startup behavior.")
                     .multilineTextAlignment(.leading)
                     .foregroundColor(.secondary)
                 
