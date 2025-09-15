@@ -69,6 +69,7 @@ struct BreakOverlayView: View {
                             RoundedRectangle(cornerRadius: 30)
                                 .stroke(Color.white.opacity(0.5), lineWidth: 2)
                         )
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(PlainButtonStyle())
                 .keyboardShortcut(.cancelAction)
