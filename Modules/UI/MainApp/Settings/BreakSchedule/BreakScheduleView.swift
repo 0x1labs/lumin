@@ -1,19 +1,18 @@
 import SwiftUI
 
 struct BreakScheduleView: View {
-    @State private var isEnabled = BreakManager.shared.isEnabled
-    @State private var regularBreaksEnabled = BreakManager.shared.areRegularBreaksEnabled
-    @State private var workInterval = BreakManager.shared.breakInterval
-    @State private var breakDuration = BreakManager.shared.breakDuration
-    @State private var microBreaksEnabled = BreakManager.shared.areMicroBreaksEnabled
-    @State private var microBreakInterval = BreakManager.shared.microBreakInterval
-    @State private var microBreakDuration = BreakManager.shared.microBreakDuration
-    @State private var waterBreaksEnabled = BreakManager.shared.areWaterBreaksEnabled
-    @State private var waterBreakInterval = BreakManager.shared.waterBreakInterval
-    @State private var waterBreakDuration = BreakManager.shared.waterBreakDuration
+    @Environment(BreakManager.self) private var breakManager
+    @State private var regularBreaksEnabled = false
+    @State private var workInterval: TimeInterval = 0
+    @State private var breakDuration: TimeInterval = 0
+    @State private var microBreaksEnabled = false
+    @State private var microBreakInterval: TimeInterval = 0
+    @State private var microBreakDuration: TimeInterval = 0
+    @State private var waterBreaksEnabled = false
+    @State private var waterBreakInterval: TimeInterval = 0
+    @State private var waterBreakDuration: TimeInterval = 0
     // Custom breaks state
-    @State private var customBreaks: [CustomBreak] = SettingsManager.shared.customBreaks
-    @State private var customBreaksEnabled: Bool = BreakManager.shared.areCustomBreaksEnabled
+    @State private var customBreaks: [CustomBreak] = []
     @State private var isPresentingAddCustom = false
     @State private var editingCustom: CustomBreak? = nil
     @State private var newCustomName: String = ""
@@ -35,7 +34,7 @@ struct BreakScheduleView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Toggle("Enable Regular Breaks", isOn: $regularBreaksEnabled)
                         .onChange(of: regularBreaksEnabled) { _, newValue in
-                            BreakManager.shared.areRegularBreaksEnabled = newValue
+                            breakManager.areRegularBreaksEnabled = newValue
                         }
                         .toggleStyle(.switch)
 
@@ -46,14 +45,14 @@ struct BreakScheduleView: View {
                                 unit: .minutes, units: [.minutes, .hours], value: $workInterval,
                                 rangeSeconds: 60...43200, stepSeconds: 60,
                                 onChange: {
-                                    BreakManager.shared.breakInterval = workInterval
+                                    breakManager.breakInterval = workInterval
                                 })
                             TimeInputView(
                                 title: "Duration", systemImage: "cup.and.saucer", accent: .green,
                                 unit: .seconds, units: [.seconds, .minutes], value: $breakDuration,
                                 rangeSeconds: 10...300, stepSeconds: 10,
                                 onChange: {
-                                    BreakManager.shared.breakDuration = breakDuration
+                                    breakManager.breakDuration = breakDuration
                                 })
                         }
                         .padding(.vertical, 8)
@@ -85,7 +84,7 @@ struct BreakScheduleView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Toggle("Enable Micro-breaks", isOn: $microBreaksEnabled)
                         .onChange(of: microBreaksEnabled) { _, newValue in
-                            BreakManager.shared.areMicroBreaksEnabled = newValue
+                            breakManager.areMicroBreaksEnabled = newValue
                         }
                         .toggleStyle(.switch)
 
@@ -96,14 +95,14 @@ struct BreakScheduleView: View {
                                 unit: .minutes, units: [.minutes, .hours], value: $microBreakInterval,
                                 rangeSeconds: 60...1200, stepSeconds: 60,
                                 onChange: {
-                                    BreakManager.shared.microBreakInterval = microBreakInterval
+                                    breakManager.microBreakInterval = microBreakInterval
                                 })
                             TimeInputView(
                                 title: "Duration", systemImage: "timer", accent: .red,
                                 unit: .seconds, units: [.seconds, .minutes],
                                 value: $microBreakDuration, rangeSeconds: 1...60, stepSeconds: 1,
                                 onChange: {
-                                    BreakManager.shared.microBreakDuration = microBreakDuration
+                                    breakManager.microBreakDuration = microBreakDuration
                                 })
                         }
                         .padding(.vertical, 8)
@@ -135,7 +134,7 @@ struct BreakScheduleView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Toggle("Enable Water Breaks", isOn: $waterBreaksEnabled)
                         .onChange(of: waterBreaksEnabled) { _, newValue in
-                            BreakManager.shared.areWaterBreaksEnabled = newValue
+                            breakManager.areWaterBreaksEnabled = newValue
                         }
                         .toggleStyle(.switch)
 
@@ -146,14 +145,14 @@ struct BreakScheduleView: View {
                                 unit: .minutes, units: [.minutes, .hours], value: $waterBreakInterval,
                                 rangeSeconds: 60...3600, stepSeconds: 60,
                                 onChange: {
-                                    BreakManager.shared.waterBreakInterval = waterBreakInterval
+                                    breakManager.waterBreakInterval = waterBreakInterval
                                 })
                             TimeInputView(
                                 title: "Duration", systemImage: "timer", accent: .teal,
                                 unit: .seconds, units: [.seconds, .minutes],
                                 value: $waterBreakDuration, rangeSeconds: 1...120, stepSeconds: 1,
                                 onChange: {
-                                    BreakManager.shared.waterBreakDuration = waterBreakDuration
+                                    breakManager.waterBreakDuration = waterBreakDuration
                                 })
                         }
                         .padding(.vertical, 8)
@@ -193,18 +192,16 @@ struct BreakScheduleView: View {
             .padding()
         }
         .onAppear {
-            isEnabled = BreakManager.shared.isEnabled
-            regularBreaksEnabled = BreakManager.shared.areRegularBreaksEnabled
-            workInterval = BreakManager.shared.breakInterval
-            breakDuration = BreakManager.shared.breakDuration
-            microBreaksEnabled = BreakManager.shared.areMicroBreaksEnabled
-            microBreakInterval = BreakManager.shared.microBreakInterval
-            microBreakDuration = BreakManager.shared.microBreakDuration
-            waterBreaksEnabled = BreakManager.shared.areWaterBreaksEnabled
-            waterBreakInterval = BreakManager.shared.waterBreakInterval
-            waterBreakDuration = BreakManager.shared.waterBreakDuration
+            regularBreaksEnabled = breakManager.areRegularBreaksEnabled
+            workInterval = breakManager.breakInterval
+            breakDuration = breakManager.breakDuration
+            microBreaksEnabled = breakManager.areMicroBreaksEnabled
+            microBreakInterval = breakManager.microBreakInterval
+            microBreakDuration = breakManager.microBreakDuration
+            waterBreaksEnabled = breakManager.areWaterBreaksEnabled
+            waterBreakInterval = breakManager.waterBreakInterval
+            waterBreakDuration = breakManager.waterBreakDuration
             customBreaks = SettingsManager.shared.customBreaks
-            customBreaksEnabled = BreakManager.shared.areCustomBreaksEnabled
         }
         .overlay(alignment: .top) {
             if let toastMessage {
@@ -236,8 +233,8 @@ struct BreakScheduleView: View {
                         editing.iconSystemName = newCustomIcon
                         editing.interval = newCustomInterval
                         editing.duration = newCustomDuration
-                        let (norm, adjusted) = BreakManager.shared.normalizeCustomBreak(editing)
-                        BreakManager.shared.updateCustomBreak(norm)
+                        let (norm, adjusted) = breakManager.normalizeCustomBreak(editing)
+                        breakManager.updateCustomBreak(norm)
                         if adjusted { showToast("Adjusted to valid range (1–720 min, 1–60 min)") }
                     } else {
                         let newItem = CustomBreak(
@@ -248,8 +245,8 @@ struct BreakScheduleView: View {
                             duration: newCustomDuration,
                             isEnabled: true
                         )
-                        let (norm, adjusted) = BreakManager.shared.normalizeCustomBreak(newItem)
-                        BreakManager.shared.addCustomBreak(norm)
+                        let (norm, adjusted) = breakManager.normalizeCustomBreak(newItem)
+                        breakManager.addCustomBreak(norm)
                         if adjusted { showToast("Adjusted to valid range (1–720 min, 1–60 min)") }
                     }
                     customBreaks = SettingsManager.shared.customBreaks
@@ -268,18 +265,6 @@ struct BreakScheduleView: View {
         }
     }
 
-    private func formatTime(_ interval: TimeInterval) -> String {
-        let minutes = Int(interval) / 60
-        let seconds = Int(interval) % 60
-
-        if minutes > 0 && seconds > 0 {
-            return "\(minutes) min \(seconds) sec"
-        } else if minutes > 0 {
-            return "\(minutes) min"
-        } else {
-            return "\(seconds) sec"
-        }
-    }
 }
 
 private let customIconOptions: [String] = [
@@ -326,14 +311,14 @@ extension BreakScheduleView {
     }
 
     fileprivate func applyCustomUpdate(_ updated: CustomBreak) {
-        let (norm, adjusted) = BreakManager.shared.normalizeCustomBreak(updated)
-        BreakManager.shared.updateCustomBreak(norm)
+        let (norm, adjusted) = breakManager.normalizeCustomBreak(updated)
+        breakManager.updateCustomBreak(norm)
         customBreaks = SettingsManager.shared.customBreaks
         if adjusted { showToast("Adjusted to valid range (1–720 min, 1–60 min)") }
     }
 
     fileprivate func removeCustom(_ item: CustomBreak) {
-        BreakManager.shared.removeCustomBreak(id: item.id)
+        breakManager.removeCustomBreak(id: item.id)
         customBreaks = SettingsManager.shared.customBreaks
     }
 

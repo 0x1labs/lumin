@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CustomBreaksView: View {
+    @Environment(BreakManager.self) private var breakManager
     @State private var customBreaks: [CustomBreak] = SettingsManager.shared.customBreaks
     @State private var isPresentingAdd = false
     @State private var editing: CustomBreak? = nil
@@ -34,13 +35,13 @@ struct CustomBreaksView: View {
                                     e.iconSystemName = icon
                                     e.interval = interval
                                     e.duration = duration
-                                    let (norm, adjusted) = BreakManager.shared.normalizeCustomBreak(e)
-                                    BreakManager.shared.updateCustomBreak(norm)
+                                    let (norm, adjusted) = breakManager.normalizeCustomBreak(e)
+                                    breakManager.updateCustomBreak(norm)
                                     if adjusted { toastMsg("Adjusted to valid range (1–720 min, 1–60 min)") }
                                 } else {
                                     let newItem = CustomBreak(name: name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Custom Break" : name, iconSystemName: icon, interval: interval, duration: duration, isEnabled: true)
-                                    let (norm, adjusted) = BreakManager.shared.normalizeCustomBreak(newItem)
-                                    BreakManager.shared.addCustomBreak(norm)
+                                    let (norm, adjusted) = breakManager.normalizeCustomBreak(newItem)
+                                    breakManager.addCustomBreak(norm)
                                     if adjusted { toastMsg("Adjusted to valid range (1–720 min, 1–60 min)") }
                                 }
                                 refresh()
@@ -117,16 +118,16 @@ struct CustomBreaksView: View {
 
     private func refresh() { customBreaks = SettingsManager.shared.customBreaks }
     private func commit(_ item: CustomBreak) {
-        let result = BreakManager.shared.normalizeCustomBreak(item)
+        let result = breakManager.normalizeCustomBreak(item)
         let normalized = result.0
         let adjusted = result.1
-        BreakManager.shared.updateCustomBreak(normalized)
+        breakManager.updateCustomBreak(normalized)
         refresh()
         if adjusted { toastMsg("Adjusted to valid range (1–720 min, 1–60 min)") }
     }
 
     private func remove(_ item: CustomBreak) {
-        BreakManager.shared.removeCustomBreak(id: item.id)
+        breakManager.removeCustomBreak(id: item.id)
         refresh()
     }
 
