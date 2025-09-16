@@ -12,6 +12,10 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
     private var timer: Timer?
     private var hostingController: NSHostingController<AnyView>?
     @Published var displayTimeRemaining: TimeInterval = 0
+    private var localKeyMonitor: Any?
+    private var globalKeyMonitor: Any?
+    private var hasSkipped = false
+    private var previousApplication: NSRunningApplication?
     
     init(breakType: BreakType, duration: TimeInterval, onSkip: @escaping () -> Void) {
         self.breakType = breakType
@@ -145,15 +149,18 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
         Logger.debug("Showing break overlay")
         // Reset the start time when showing the overlay
         startTime = Date()
+        hasSkipped = false
         // Ensure the window is properly positioned and sized before showing
         positionWindow()
+        setupKeyMonitors()
+        capturePreviousApplication()
         self.showWindow(nil)
         
         // Check if we can become main and key
         if let window = self.window { Logger.debug("Window can become main: \(window.canBecomeMain), key: \(window.canBecomeKey), visible: \(window.isVisible)") }
         
-        // Remove the focus-stealing activation
-        // NSApp.activate(ignoringOtherApps: true)
+        // Bring Lumin to the front so keyboard shortcuts are captured
+        NSApp.activate(ignoringOtherApps: true)
         
         // Ensure the window is ordered front but without stealing focus
         if let window = self.window {
@@ -215,14 +222,20 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
     }
     
     private func skipBreak() {
+        guard !hasSkipped else { return }
+        hasSkipped = true
         timer?.invalidate()
+        removeKeyMonitors()
         self.close()
         onSkip()
+        restorePreviousApplication()
     }
-    
+
     func windowWillClose(_ notification: Notification) {
         Logger.debug("Break overlay window will close")
         timer?.invalidate()
+        removeKeyMonitors()
+        restorePreviousApplication()
     }
     
     func windowDidBecomeKey(_ notification: Notification) { Logger.debug("Break overlay window became key") }
@@ -230,4 +243,72 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
     func windowDidBecomeMain(_ notification: Notification) { Logger.debug("Break overlay window became main") }
     
     func windowDidExpose(_ notification: Notification) { Logger.debug("Break overlay window exposed") }
+
+    deinit {
+        removeKeyMonitors()
+    }
+
+    private func setupKeyMonitors() {
+        removeKeyMonitors()
+
+        globalKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self = self else { return }
+            if self.shouldHandle(event: event) {
+                self.skipBreak()
+            }
+        }
+
+        localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self = self else { return event }
+            if self.shouldHandle(event: event) {
+                self.skipBreak()
+                return nil
+            }
+            return event
+        }
+    }
+
+    private func removeKeyMonitors() {
+        if let localKeyMonitor {
+            NSEvent.removeMonitor(localKeyMonitor)
+            self.localKeyMonitor = nil
+        }
+        if let globalKeyMonitor {
+            NSEvent.removeMonitor(globalKeyMonitor)
+            self.globalKeyMonitor = nil
+        }
+    }
+
+    private func shouldHandle(event: NSEvent) -> Bool {
+        guard !event.isARepeat else { return false }
+        switch event.keyCode {
+        case 49, 53: // space or escape
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func capturePreviousApplication() {
+        let currentApplication = NSRunningApplication.current
+        if let frontmost = NSWorkspace.shared.frontmostApplication,
+           frontmost.processIdentifier != currentApplication.processIdentifier {
+            previousApplication = frontmost
+        } else {
+            previousApplication = nil
+        }
+    }
+
+    private func restorePreviousApplication() {
+        if let previousApplication,
+           !previousApplication.isTerminated,
+           previousApplication.processIdentifier != NSRunningApplication.current.processIdentifier {
+            if #available(macOS 14, *) {
+                previousApplication.activate()
+            } else {
+                previousApplication.activate(options: [.activateIgnoringOtherApps])
+            }
+        }
+        previousApplication = nil
+    }
 }
