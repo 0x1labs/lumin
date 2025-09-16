@@ -37,6 +37,7 @@ struct LuminApp: App {
     var body: some Scene {
         WindowGroup {
             MainView()
+                .environment(BreakManager.shared)
         }
         .windowToolbarStyle(.unifiedCompact)
     }

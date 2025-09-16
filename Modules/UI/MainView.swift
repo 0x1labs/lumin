@@ -7,8 +7,7 @@ import AppKit
 
 struct MainView: View {
     @State private var selection: NavigationItem? = .dashboard
-    @State private var breakManager = BreakManager.shared
-    
+
     var body: some View {
         NavigationSplitView {
             VStack {

@@ -2,6 +2,7 @@
 import SwiftUI
 
 struct GeneralSettingsView: View {
+    @Environment(BreakManager.self) private var breakManager
     @State private var viewModel = SettingsViewModel()
     
     var body: some View {
@@ -28,7 +29,7 @@ struct GeneralSettingsView: View {
                 
                 Toggle("Enable Breaks Automatically", isOn: $viewModel.isEnabled)
                     .onChange(of: viewModel.isEnabled) { _, newValue in
-                        BreakManager.shared.isEnabled = newValue
+                        breakManager.isEnabled = newValue
                     }
                     .toggleStyle(.switch)
             }

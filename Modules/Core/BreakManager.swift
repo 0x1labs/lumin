@@ -3,6 +3,35 @@ import Observation
 import Foundation
 import AppKit
 
+struct BreakScheduleEntry: Identifiable, Equatable {
+    enum Kind: Equatable {
+        case regular
+        case micro
+        case water
+        case custom(UUID)
+    }
+
+    let kind: Kind
+    let title: String
+    let fireDate: Date
+    let iconSystemName: String?
+
+    var id: String {
+        let base: String
+        switch kind {
+        case .regular:
+            base = "regular"
+        case .micro:
+            base = "micro"
+        case .water:
+            base = "water"
+        case .custom(let identifier):
+            base = "custom-\(identifier.uuidString)"
+        }
+        return base + "-\(fireDate.timeIntervalSinceReferenceDate)"
+    }
+}
+
 @Observable
 class BreakManager {
     static let shared = BreakManager()
@@ -519,10 +548,14 @@ class BreakManager {
     func stopTimers() {
         Logger.debug("Stopping all break timers")
         regularBreakTimer?.invalidate()
+        regularBreakTimer = nil
         microBreakTimer?.invalidate()
+        microBreakTimer = nil
         waterBreakTimer?.invalidate()
+        waterBreakTimer = nil
         for (_, t) in customTimers { t.invalidate() }
         customTimers.removeAll()
+        customIndex.removeAll()
         isOnBreak = false
     }
     
@@ -627,6 +660,68 @@ class BreakManager {
     private func stopCustomTimer(for id: UUID) {
         if let t = customTimers[id] { t.invalidate() }
         customTimers.removeValue(forKey: id)
+    }
+
+    @MainActor
+    func scheduledBreaks(after date: Date = .now) -> [BreakScheduleEntry] {
+        var entries: [BreakScheduleEntry] = []
+
+        if areRegularBreaksEnabled,
+           let workDate = nextWorkBreakDate,
+           workDate > date {
+            entries.append(
+                BreakScheduleEntry(
+                    kind: .regular,
+                    title: "Regular Break",
+                    fireDate: workDate,
+                    iconSystemName: "cup.and.saucer"
+                )
+            )
+        }
+
+        if areMicroBreaksEnabled,
+           let microDate = nextMicroBreakDate,
+           microDate > date {
+            entries.append(
+                BreakScheduleEntry(
+                    kind: .micro,
+                    title: "Micro Break",
+                    fireDate: microDate,
+                    iconSystemName: "eye"
+                )
+            )
+        }
+
+        if areWaterBreaksEnabled,
+           let waterDate = nextWaterBreakDate,
+           waterDate > date {
+            entries.append(
+                BreakScheduleEntry(
+                    kind: .water,
+                    title: "Water Break",
+                    fireDate: waterDate,
+                    iconSystemName: "drop"
+                )
+            )
+        }
+
+        for entry in nextCustomBreaks where entry.date > date {
+            entries.append(
+                BreakScheduleEntry(
+                    kind: .custom(entry.custom.id),
+                    title: entry.custom.name,
+                    fireDate: entry.date,
+                    iconSystemName: entry.custom.iconSystemName
+                )
+            )
+        }
+
+        return entries.sorted { $0.fireDate < $1.fireDate }
+    }
+
+    @MainActor
+    func nextScheduledBreak(after date: Date = .now) -> BreakScheduleEntry? {
+        scheduledBreaks(after: date).first
     }
 
     // Expose upcoming custom breaks for UI
