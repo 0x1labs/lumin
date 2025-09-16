@@ -73,6 +73,10 @@ struct BreakOverlayView: View {
                 }
                 .buttonStyle(PlainButtonStyle())
                 .keyboardShortcut(.cancelAction)
+
+                Text("Press Esc or Space to skip")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
             }
             .padding(60)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
