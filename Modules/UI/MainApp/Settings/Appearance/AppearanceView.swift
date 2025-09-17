@@ -63,7 +63,7 @@ struct AppearanceView: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 Slider(value: $overlayOpacity, in: 0.5...1.0, step: 0.05)
                                 HStack {
-                                    Text("50%")
+                                    Text("0%")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                     Spacer()
@@ -207,10 +207,16 @@ struct GradientPickerView: View {
         ("Pastel 1", [.pink.opacity(0.7), .blue.opacity(0.7)]),
         ("Pastel 2", [.yellow.opacity(0.7), .green.opacity(0.7)]),
         ("Pastel 3", [.purple.opacity(0.7), .pink.opacity(0.7)]),
+        ("Aurora", [.mint, .blue, .purple.opacity(0.8)]),
+        ("Lava", [.red, .orange, .yellow]),
+        ("Forest", [.green, .teal, Color(hue: 0.38, saturation: 0.6, brightness: 0.4)]),
+        ("Midnight", [Color(hue: 0.65, saturation: 0.6, brightness: 0.2), .black]),
+        ("Rose", [Color(red: 0.98, green: 0.74, blue: 0.8), Color(red: 0.86, green: 0.38, blue: 0.54)]),
         ("Frosted Glass", [Color.white.opacity(0.3), Color.white.opacity(0.1)]),
         ("Frosted Glass Black", [Color.black.opacity(0.3), Color.black.opacity(0.1)]),
         ("Sunset", [Color.orange, Color.pink, Color.purple]),
-        ("Ocean", [Color.blue.opacity(0.8), Color.teal.opacity(0.8)])
+        ("Ocean", [Color.blue.opacity(0.8), Color.teal.opacity(0.8)]),
+        ("Galaxy", [Color.black, Color.purple.opacity(0.8), Color.blue.opacity(0.6)])
     ]
     
     private func gradientForName(_ name: String) -> Gradient {
@@ -223,10 +229,16 @@ struct GradientPickerView: View {
         case "pastel 1": return Gradient(colors: [.pink.opacity(0.7), .blue.opacity(0.7)])
         case "pastel 2": return Gradient(colors: [.yellow.opacity(0.7), .green.opacity(0.7)])
         case "pastel 3": return Gradient(colors: [.purple.opacity(0.7), .pink.opacity(0.7)])
+        case "aurora": return Gradient(colors: [.mint, .blue, .purple.opacity(0.8)])
+        case "lava": return Gradient(colors: [.red, .orange, .yellow])
+        case "forest": return Gradient(colors: [.green, .teal, Color(hue: 0.38, saturation: 0.6, brightness: 0.4)])
+        case "midnight": return Gradient(colors: [Color(hue: 0.65, saturation: 0.6, brightness: 0.2), .black])
+        case "rose": return Gradient(colors: [Color(red: 0.98, green: 0.74, blue: 0.8), Color(red: 0.86, green: 0.38, blue: 0.54)])
         case "frosted glass": return Gradient(colors: [Color.white.opacity(0.3), Color.white.opacity(0.1)])
         case "frosted glass black": return Gradient(colors: [Color.black.opacity(0.3), Color.black.opacity(0.1)])
         case "sunset": return Gradient(colors: [Color.orange, Color.pink, Color.purple])
         case "ocean": return Gradient(colors: [Color.blue.opacity(0.8), Color.teal.opacity(0.8)])
+        case "galaxy": return Gradient(colors: [Color.black, Color.purple.opacity(0.8), Color.blue.opacity(0.6)])
         default: return Gradient(colors: [.blue, .purple])
         }
     }
@@ -337,10 +349,16 @@ struct OverlayPreview: View {
         case "pastel 1": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.pink.opacity(baseOpacity * 0.7), Color.blue.opacity(baseOpacity * 0.7)]), startPoint: .topLeading, endPoint: .bottomTrailing))
         case "pastel 2": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.yellow.opacity(baseOpacity * 0.7), Color.green.opacity(baseOpacity * 0.7)]), startPoint: .topLeading, endPoint: .bottomTrailing))
         case "pastel 3": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.purple.opacity(baseOpacity * 0.7), Color.pink.opacity(baseOpacity * 0.7)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        case "aurora": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.mint.opacity(baseOpacity), Color.blue.opacity(baseOpacity * 0.9), Color.purple.opacity(baseOpacity * 0.8)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        case "lava": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.red.opacity(baseOpacity), Color.orange.opacity(baseOpacity), Color.yellow.opacity(baseOpacity * 0.9)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        case "forest": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.green.opacity(baseOpacity), Color.teal.opacity(baseOpacity), Color(hue: 0.38, saturation: 0.6, brightness: 0.4).opacity(baseOpacity)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        case "midnight": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color(hue: 0.65, saturation: 0.6, brightness: 0.2).opacity(baseOpacity), Color.black.opacity(baseOpacity)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        case "rose": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color(red: 0.98, green: 0.74, blue: 0.8).opacity(baseOpacity), Color(red: 0.86, green: 0.38, blue: 0.54).opacity(baseOpacity)]), startPoint: .topLeading, endPoint: .bottomTrailing))
         case "frosted glass": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.white.opacity(baseOpacity * 0.3), Color.white.opacity(baseOpacity * 0.1)]), startPoint: .topLeading, endPoint: .bottomTrailing))
         case "frosted glass black": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.black.opacity(baseOpacity * 0.3), Color.black.opacity(baseOpacity * 0.1)]), startPoint: .topLeading, endPoint: .bottomTrailing))
         case "sunset": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.orange.opacity(baseOpacity), Color.pink.opacity(baseOpacity), Color.purple.opacity(baseOpacity * 0.8)]), startPoint: .topLeading, endPoint: .bottomTrailing))
         case "ocean": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.blue.opacity(baseOpacity * 0.8), Color.teal.opacity(baseOpacity * 0.8)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+        case "galaxy": backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.black.opacity(baseOpacity), Color.purple.opacity(baseOpacity * 0.85), Color.blue.opacity(baseOpacity * 0.7)]), startPoint: .topLeading, endPoint: .bottomTrailing))
         default: backgroundView = AnyView(LinearGradient(gradient: Gradient(colors: [Color.blue.opacity(baseOpacity), Color.purple.opacity(baseOpacity * 0.8)]), startPoint: .topLeading, endPoint: .bottomTrailing))
         }
         
