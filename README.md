@@ -1,74 +1,23 @@
 # Lumin
 
-Lumin is a macOS app that helps you take regular breaks to reduce eye strain and stay productive. It uses a lightweight SwiftUI overlay for breaks and simple timers for scheduling.
+Lumin is a native macOS app that keeps you fresh while you work. It schedules eye breaks, water reminders, and custom pauses, then presents them in lightweight SwiftUI overlays that stay out of the way until you need them.
 
-## Features
+## Highlights
 
-- Work breaks with configurable intervals
-- Micro-breaks with different types (blink, posture)
-- Water break reminders
-- Statistics tracking
-- Menu bar integration for quick access
-- Configurable settings
+- **Smart break scheduling** – Regular, micro, water, and custom breaks managed by a single timeline-aware controller.
+- **One-click pause/resume** – Toggle all timers from the dashboard; the next/upcoming sections stay in sync when you resume.
+- **Keyboard-friendly overlays** – Skip with `Esc` or `Space` (no mouse required) and the previously focused app regains focus automatically.
+- **Multi-display support** – Break overlays cover every connected monitor, so reminders are impossible to miss.
+- **Statistics at a glance** – Daily totals, completion rates, and break distribution with a reset button when you want a fresh start.
+- **Personalized styling** – Pick from new gradient themes (Aurora, Lava, Forest, Midnight, Rose, Galaxy, and more) and tweak overlay opacity without leaving the app.
 
-## UI Overview
+## User Guide
+To install this application, follow this guide in [User Installlations](./Docs/UserInstallation.md)
 
-- Dashboard with upcoming breaks, status, and quick actions
-- Settings (General, Break Schedule, Appearance, Shortcuts)
-- Full-screen overlay during breaks (Regular/Micro/Water)
 
-## Build & Run
-
-Requirements:
-- macOS 14+ (Sonoma)
-- Xcode 15+
-
-Option A — Xcode
-1. Open the folder in Xcode
-2. Build and Run (Cmd+R)
-
-Option B — CLI app bundle (dev):
-```bash
-./run.sh
-```
-This compiles with SwiftPM, assembles `Lumin.app`, copies the app icon, ad‑hoc signs with the provided entitlements, and launches the app.
-
-Notes:
-- The included `Info.plist` sets `CFBundleIconFile` to `AppIcon`, and `Resources/AppIcon.icns` is bundled by `run.sh`.
-- The package manifest is `swift-tools-version:5.9` for wider compatibility with Xcode 15.
-
-## Project Structure
-
-```
-Lumin/
-├── LuminApp.swift                     # App entry
-├── Modules/
-│   ├── Core/
-│   │   ├── BreakManager.swift         # Timers and break scheduling
-│   │   ├── SettingsManager.swift      # @AppStorage-backed settings
-│   │   ├── Models/                    # Data models
-│   │   └── Utilities/                 # Logger, errors, extensions
-│   ├── Services/
-│   │   └── NotificationManager.swift  # UNUserNotificationCenter wrapper
-│   └── UI/
-│       ├── MainApp/                   # Dashboard & Settings views
-│       └── Overlays/                  # Break overlay window + view
-├── Resources/                         # App icon, asset catalog
-├── Package.swift
-├── Info.plist
-├── Lumin.entitlements
-└── run.sh
-
-## Permissions
-- Notifications: requested on launch; can be adjusted under macOS System Settings → Notifications → Lumin
-
-## Development
-- Do not commit built artifacts (e.g., `Lumin.app/`). A `.gitignore` is provided.
-- The `run.sh` script is for local development convenience and uses ad‑hoc signing.
-
-## Contributing
-Issues and PRs are welcome! Please file an issue with steps to reproduce for bugs.
+## Developer Guide
+The developer guide can be found [here](Docs/DeveloperDoc.md).
 
 ## License
-See `LICENSE`.
-```
+
+Lumin is released under the MIT License. See [`LICENSE`](LICENSE) for details.
