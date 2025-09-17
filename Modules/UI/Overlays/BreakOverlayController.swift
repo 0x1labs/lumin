@@ -6,6 +6,7 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
     private let breakType: BreakType
     private let duration: TimeInterval
     private let onSkip: () -> Void
+    private let onComplete: () -> Void
     private let selectedMessage: String
     private let customIconSystemName: String?
     private var startTime: Date = Date()
@@ -14,13 +15,14 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
     @Published var displayTimeRemaining: TimeInterval = 0
     private var localKeyMonitor: Any?
     private var globalKeyMonitor: Any?
-    private var hasSkipped = false
+    private var hasEnded = false
     private var previousApplication: NSRunningApplication?
     
-    init(breakType: BreakType, duration: TimeInterval, onSkip: @escaping () -> Void) {
+    init(breakType: BreakType, duration: TimeInterval, onSkip: @escaping () -> Void, onComplete: @escaping () -> Void) {
         self.breakType = breakType
         self.duration = duration
         self.onSkip = onSkip
+        self.onComplete = onComplete
         self.displayTimeRemaining = duration
         self.selectedMessage = BreakOverlayController.message(for: breakType)
         self.customIconSystemName = nil
@@ -84,8 +86,8 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
     }
 
     // Custom break convenience initializer
-    convenience init(customTitle: String, customIconSystemName: String?, duration: TimeInterval, onSkip: @escaping () -> Void) {
-        self.init(breakType: .custom, duration: duration, onSkip: onSkip)
+    convenience init(customTitle: String, customIconSystemName: String?, duration: TimeInterval, onSkip: @escaping () -> Void, onComplete: @escaping () -> Void) {
+        self.init(breakType: .custom, duration: duration, onSkip: onSkip, onComplete: onComplete)
         self.setCustom(message: customTitle, iconSystemName: customIconSystemName)
     }
 
@@ -149,7 +151,7 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
         Logger.debug("Showing break overlay")
         // Reset the start time when showing the overlay
         startTime = Date()
-        hasSkipped = false
+        hasEnded = false
         // Ensure the window is properly positioned and sized before showing
         positionWindow()
         setupKeyMonitors()
@@ -216,18 +218,33 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
             
             self.displayTimeRemaining = remaining
             
-            // If time is up, skip the break
-            if remaining <= 0 { timer.invalidate(); self.skipBreak() }
+            // If time is up, finish the break as completed
+            if remaining <= 0 {
+                timer.invalidate()
+                self.completeBreak()
+            }
         }
     }
-    
+
     private func skipBreak() {
-        guard !hasSkipped else { return }
-        hasSkipped = true
+        finishBreak(completed: false)
+    }
+
+    private func completeBreak() {
+        finishBreak(completed: true)
+    }
+
+    private func finishBreak(completed: Bool) {
+        guard !hasEnded else { return }
+        hasEnded = true
         timer?.invalidate()
         removeKeyMonitors()
         self.close()
-        onSkip()
+        if completed {
+            onComplete()
+        } else {
+            onSkip()
+        }
         restorePreviousApplication()
     }
 
@@ -235,7 +252,10 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
         Logger.debug("Break overlay window will close")
         timer?.invalidate()
         removeKeyMonitors()
-        restorePreviousApplication()
+        if !hasEnded {
+            onSkip()
+            restorePreviousApplication()
+        }
     }
     
     func windowDidBecomeKey(_ notification: Notification) { Logger.debug("Break overlay window became key") }
