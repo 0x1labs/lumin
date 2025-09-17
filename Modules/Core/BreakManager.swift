@@ -258,10 +258,18 @@ class BreakManager {
         self.breakRecorded = false
         
         print("Lumin: Creating BreakOverlayController with breakType: \(type)")
-        breakOverlayController = BreakOverlayController(breakType: type, duration: duration, onSkip: {
-            print("Lumin: Break skipped by user")
-            self.endBreak(type: type, skipped: true)
-        })
+        breakOverlayController = BreakOverlayController(
+            breakType: type,
+            duration: duration,
+            onSkip: {
+                print("Lumin: Break skipped by user")
+                self.endBreak(type: type, skipped: true)
+            },
+            onComplete: {
+                print("Lumin: Break completed")
+                self.endBreak(type: type, skipped: false)
+            }
+        )
         print("Lumin: Showing BreakOverlayController")
         breakOverlayController?.show()
         print("Lumin: BreakOverlayController shown")
@@ -280,13 +288,6 @@ class BreakManager {
 
         notify(title: "\(type.rawValue) Break", subtitle: "Take a \(type.rawValue) break for \(Int(duration)) seconds.")
 
-        // End the break after the duration, but ensure it's at least 1 second to allow the overlay to show
-        let adjustedDuration = max(1.0, duration)
-        print("Lumin: Scheduling break end in \(adjustedDuration) seconds")
-        DispatchQueue.main.asyncAfter(deadline: .now() + adjustedDuration) {
-            print("Lumin: Break duration elapsed, ending break")
-            self.endBreak(type: type, skipped: false)
-        }
     }
 
     private func handleCustomBreak(_ custom: CustomBreak) {
@@ -307,21 +308,23 @@ class BreakManager {
         self.breakDurationValue = custom.duration
         self.breakRecorded = false
 
-        breakOverlayController = BreakOverlayController(customTitle: custom.name,
-                                                        customIconSystemName: custom.iconSystemName,
-                                                        duration: custom.duration, onSkip: {
-            print("Lumin: Custom break skipped by user")
-            self.endCustomBreak(custom, skipped: true)
-        })
+        breakOverlayController = BreakOverlayController(
+            customTitle: custom.name,
+            customIconSystemName: custom.iconSystemName,
+            duration: custom.duration,
+            onSkip: {
+                print("Lumin: Custom break skipped by user")
+                self.endCustomBreak(custom, skipped: true)
+            },
+            onComplete: {
+                print("Lumin: Custom break completed")
+                self.endCustomBreak(custom, skipped: false)
+            }
+        )
         breakOverlayController?.show()
 
         notify(title: "\(custom.name)", subtitle: "Take a break for \(Int(custom.duration)) seconds.")
 
-        let adjustedDuration = max(1.0, custom.duration)
-        DispatchQueue.main.asyncAfter(deadline: .now() + adjustedDuration) {
-            print("Lumin: Custom break duration elapsed, ending break")
-            self.endCustomBreak(custom, skipped: false)
-        }
     }
     
     private func endBreak(type: BreakType, skipped: Bool = false) {

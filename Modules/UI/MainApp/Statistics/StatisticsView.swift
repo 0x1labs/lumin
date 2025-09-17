@@ -4,6 +4,8 @@ import SwiftUI
 struct StatisticsView: View {
     @State private var statisticsManager = StatisticsManager.shared
     @State private var selectedPeriod = StatisticsPeriod.week
+    @State private var refreshToken = UUID()
+    @State private var showingResetConfirmation = false
     
     var body: some View {
         ScrollView {
@@ -11,6 +13,16 @@ struct StatisticsView: View {
                 Text("Statistics")
                     .font(.largeTitle)
                     .fontWeight(.bold)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .overlay(alignment: .trailing) {
+                        Button(role: .destructive) {
+                            showingResetConfirmation = true
+                        } label: {
+                            Label("Reset", systemImage: "arrow.uturn.backward")
+                                .labelStyle(.titleAndIcon)
+                        }
+                        .buttonStyle(.bordered)
+                    }
                 
                 Text("View your break history, productivity statistics, and trends over time.")
                     .multilineTextAlignment(.leading)
@@ -117,6 +129,16 @@ struct StatisticsView: View {
             .padding()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .id(refreshToken)
+        .alert("Reset Statistics?", isPresented: $showingResetConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Reset", role: .destructive) {
+                statisticsManager.resetStatistics()
+                refreshToken = UUID()
+            }
+        } message: {
+            Text("This clears all recorded break history so tracking restarts from now.")
+        }
     }
     
     private func formatNumber(_ number: Int) -> String {
