@@ -6,8 +6,9 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
     private let breakType: BreakType
     private let duration: TimeInterval
     private let onSkip: () -> Void
-    private let selectedMessage: String
-    private let customIconSystemName: String?
+    private var selectedMessage: String
+    private var customIconSystemName: String?
+    private var customTitle: String?
     private var startTime: Date = Date()
     private var timer: Timer?
     private var hostingController: NSHostingController<AnyView>?
@@ -16,19 +17,21 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
     private var globalKeyMonitor: Any?
     private var hasSkipped = false
     private var previousApplication: NSRunningApplication?
+    private var additionalWindows: [NSWindow] = []
     
     init(breakType: BreakType, duration: TimeInterval, onSkip: @escaping () -> Void) {
         self.breakType = breakType
         self.duration = duration
         self.onSkip = onSkip
-        self.displayTimeRemaining = duration
         self.selectedMessage = BreakOverlayController.message(for: breakType)
         self.customIconSystemName = nil
+        self.customTitle = nil
+        self.displayTimeRemaining = duration
         
         Logger.debug("Creating BreakOverlayController with breakType: \(breakType), duration: \(duration)")
         
-        // Create the window with a default frame
-        let screen = NSScreen.main ?? NSScreen.screens[0]
+        let screens = NSScreen.screens
+        let screen = NSScreen.main ?? screens.first ?? NSScreen()
         let screenFrame = screen.frame
         
         Logger.debug("Screen frame: \(screenFrame)")
@@ -40,46 +43,12 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
             defer: false
         )
         
-        // Check if window was created successfully
         if window.frame.isEmpty { Logger.debug("ERROR - Window frame is empty") }
         
         super.init(window: window)
         
-        // Set window properties for fullscreen overlay
-        // Use different window levels based on break type
-        switch breakType {
-        case .regular:
-            window.level = .floating  // High level for regular breaks to ensure visibility
-        case .micro, .water, .custom:
-            window.level = .floating  // Same level for all breaks to ensure consistent behavior
-        }
-        
-        window.isOpaque = false
-        window.backgroundColor = NSColor.clear
-        window.hasShadow = false
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
-        window.delegate = self
-        
-        // Prevent the window from becoming key or main to avoid stealing focus
-        window.isReleasedWhenClosed = false
-        window.canBecomeVisibleWithoutLogin = true
-        
-        // Additional properties to prevent focus stealing
-        window.hidesOnDeactivate = false
-        
-        // Create the SwiftUI view
-        let overlayView = BreakOverlayView(
-            breakType: breakType,
-            duration: duration,
-            controller: self,
-            message: selectedMessage,
-            customIconSystemName: customIconSystemName,
-            customTitle: nil,
-            onSkip: { self.skipBreak() }
-        )
-        
-        hostingController = NSHostingController(rootView: AnyView(overlayView))
-        self.contentViewController = hostingController
+        configure(window: window, for: screen)
+        updateMainWindowContent()
         Logger.debug("BreakOverlayController initialized")
     }
 
@@ -90,22 +59,92 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
     }
 
     private func setCustom(message: String, iconSystemName: String?) {
-        // Rebuild the SwiftUI view with custom parameters
-        let overlayView = BreakOverlayView(
-            breakType: .custom,
-            duration: duration,
-            controller: self,
-            message: message,
-            customIconSystemName: iconSystemName,
-            customTitle: message,
-            onSkip: { self.skipBreak() }
-        )
-        hostingController = NSHostingController(rootView: AnyView(overlayView))
-        self.contentViewController = hostingController
+        selectedMessage = message
+        customTitle = message
+        customIconSystemName = iconSystemName
+        updateMainWindowContent()
+        refreshAdditionalWindows()
     }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    private func configure(window: NSWindow, for screen: NSScreen, assignDelegate: Bool = true) {
+        window.level = .floating
+        window.isOpaque = false
+        window.backgroundColor = NSColor.clear
+        window.hasShadow = false
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        if assignDelegate { window.delegate = self }
+        window.isReleasedWhenClosed = false
+        window.canBecomeVisibleWithoutLogin = true
+        window.hidesOnDeactivate = false
+        window.setFrame(screen.frame, display: true)
+    }
+
+    private func makeOverlayView() -> BreakOverlayView {
+        BreakOverlayView(
+            breakType: breakType,
+            duration: duration,
+            controller: self,
+            message: selectedMessage,
+            customIconSystemName: customIconSystemName,
+            customTitle: customTitle,
+            onSkip: { self.skipBreak() }
+        )
+    }
+
+    private func updateMainWindowContent() {
+        let overlayView = makeOverlayView()
+        hostingController = NSHostingController(rootView: AnyView(overlayView))
+        self.contentViewController = hostingController
+    }
+
+    private func refreshAdditionalWindows() {
+        for window in additionalWindows {
+            let hosting = NSHostingController(rootView: AnyView(makeOverlayView()))
+            window.contentViewController = hosting
+        }
+    }
+
+    private func setupAdditionalWindows() {
+        closeAdditionalWindows()
+        let screens = NSScreen.screens
+        guard let mainScreen = NSScreen.main ?? screens.first else { return }
+        let mainIdentifier = screenIdentifier(for: mainScreen)
+        for screen in screens {
+            if let mainIdentifier, let identifier = screenIdentifier(for: screen), identifier == mainIdentifier {
+                continue
+            }
+            if screen == mainScreen { continue }
+            let window = NSWindow(
+                contentRect: screen.frame,
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false
+            )
+            configure(window: window, for: screen, assignDelegate: false)
+            let hosting = NSHostingController(rootView: AnyView(makeOverlayView()))
+            window.contentViewController = hosting
+            additionalWindows.append(window)
+        }
+    }
+
+    private func closeAdditionalWindows() {
+        for window in additionalWindows {
+            window.orderOut(nil)
+            window.close()
+        }
+        additionalWindows.removeAll()
+    }
+
+    private func screenIdentifier(for screen: NSScreen) -> UInt32? {
+        let key = NSDeviceDescriptionKey("NSScreenNumber")
+        if let number = screen.deviceDescription[key] as? NSNumber {
+            return number.uint32Value
+        }
+        return nil
     }
 
     private static func message(for breakType: BreakType) -> String {
@@ -152,6 +191,7 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
         hasSkipped = false
         // Ensure the window is properly positioned and sized before showing
         positionWindow()
+        setupAdditionalWindows()
         setupKeyMonitors()
         capturePreviousApplication()
         self.showWindow(nil)
@@ -173,29 +213,29 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
             Logger.debug("ERROR - Window is nil")
         }
         
+        for window in additionalWindows {
+            window.orderFrontRegardless()
+        }
+        
         // Start the timer after showing the window
         startTimer()
         Logger.debug("Break overlay shown")
     }
     
     private func positionWindow() {
-        guard let window = self.window else { 
+        guard let window = self.window else {
             print("Lumin: ERROR - Window is nil in positionWindow")
-            return 
+            return
         }
-        
-        // Get the screen information
-        let screen = NSScreen.main ?? NSScreen.screens[0]
-        let screenFrame = screen.frame
-        
-        Logger.debug("Positioning window on screen with frame: \(screenFrame), screen count: \(NSScreen.screens.count), main: \(String(describing: NSScreen.main))")
-        
-        // Position and size the window to cover the entire screen
-        window.setFrame(screenFrame, display: true)
-        
-        // Ensure the window is on the active space
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
-        
+
+        let screens = NSScreen.screens
+        let screen = NSScreen.main ?? screens.first
+
+        if let screen {
+            Logger.debug("Positioning window on screen with frame: \(screen.frame), screen count: \(screens.count), main: \(String(describing: NSScreen.main))")
+            configure(window: window, for: screen, assignDelegate: true)
+        }
+
         Logger.debug("Window positioned with frame: \(window.frame)")
     }
     
@@ -226,6 +266,7 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
         hasSkipped = true
         timer?.invalidate()
         removeKeyMonitors()
+        closeAdditionalWindows()
         self.close()
         onSkip()
         restorePreviousApplication()
@@ -235,6 +276,7 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
         Logger.debug("Break overlay window will close")
         timer?.invalidate()
         removeKeyMonitors()
+        closeAdditionalWindows()
         restorePreviousApplication()
     }
     
@@ -246,6 +288,7 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
 
     deinit {
         removeKeyMonitors()
+        closeAdditionalWindows()
     }
 
     private func setupKeyMonitors() {
