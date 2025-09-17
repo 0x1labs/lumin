@@ -2,113 +2,298 @@ import SwiftUI
 import AppKit
 import Combine
 
+/// Controls the break overlay window and mirrors it across every connected display.
 class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableObject {
     private let breakType: BreakType
     private let duration: TimeInterval
     private let onSkip: () -> Void
     private let onComplete: () -> Void
-    private let selectedMessage: String
-    private let customIconSystemName: String?
+
+    private var selectedMessage: String
+    private var customIconSystemName: String?
+    private var customTitle: String?
+
     private var startTime: Date = Date()
     private var timer: Timer?
     private var hostingController: NSHostingController<AnyView>?
-    @Published var displayTimeRemaining: TimeInterval = 0
     private var localKeyMonitor: Any?
     private var globalKeyMonitor: Any?
-    private var hasEnded = false
     private var previousApplication: NSRunningApplication?
-    
+    private var completionState: Bool?
+
+    private var additionalWindows: [NSWindow] = []
+
+    @Published var displayTimeRemaining: TimeInterval = 0
+
     init(breakType: BreakType, duration: TimeInterval, onSkip: @escaping () -> Void, onComplete: @escaping () -> Void) {
         self.breakType = breakType
         self.duration = duration
         self.onSkip = onSkip
         self.onComplete = onComplete
-        self.displayTimeRemaining = duration
         self.selectedMessage = BreakOverlayController.message(for: breakType)
-        self.customIconSystemName = nil
-        
+        self.displayTimeRemaining = duration
+
         Logger.debug("Creating BreakOverlayController with breakType: \(breakType), duration: \(duration)")
-        
-        // Create the window with a default frame
-        let screen = NSScreen.main ?? NSScreen.screens[0]
-        let screenFrame = screen.frame
-        
-        Logger.debug("Screen frame: \(screenFrame)")
-        
+
+        let primaryScreen = NSScreen.main ?? NSScreen.screens.first ?? NSScreen()
         let window = NSWindow(
-            contentRect: screenFrame,
+            contentRect: primaryScreen.frame,
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
-        
-        // Check if window was created successfully
-        if window.frame.isEmpty { Logger.debug("ERROR - Window frame is empty") }
-        
+
         super.init(window: window)
-        
-        // Set window properties for fullscreen overlay
-        // Use different window levels based on break type
-        switch breakType {
-        case .regular:
-            window.level = .floating  // High level for regular breaks to ensure visibility
-        case .micro, .water, .custom:
-            window.level = .floating  // Same level for all breaks to ensure consistent behavior
+
+        configure(window: window, for: primaryScreen, assignDelegate: true)
+        updateMainWindowContent()
+    }
+
+    convenience init(customTitle: String, customIconSystemName: String?, duration: TimeInterval, onSkip: @escaping () -> Void, onComplete: @escaping () -> Void) {
+        self.init(breakType: .custom, duration: duration, onSkip: onSkip, onComplete: onComplete)
+        setCustom(message: customTitle, iconSystemName: customIconSystemName)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setCustom(message: String, iconSystemName: String?) {
+        selectedMessage = message
+        customTitle = message
+        customIconSystemName = iconSystemName
+        updateMainWindowContent()
+        refreshAdditionalWindows()
+    }
+
+    // MARK: - Window lifecycle
+
+    func show() {
+        Logger.debug("Showing break overlay")
+        startTime = Date()
+        displayTimeRemaining = duration
+        completionState = nil
+
+        positionPrimaryWindow()
+        setupAdditionalWindows()
+        setupKeyMonitors()
+        capturePreviousApplication()
+
+        showWindow(nil)
+        window?.orderFrontRegardless()
+        additionalWindows.forEach { $0.orderFrontRegardless() }
+
+        NSApp.activate(ignoringOtherApps: true)
+        startTimer()
+    }
+
+    private func positionPrimaryWindow() {
+        guard let window = window else { return }
+        let screens = NSScreen.screens
+        let primary = NSScreen.main ?? screens.first
+        if let primary {
+            configure(window: window, for: primary, assignDelegate: true)
+            if let hosting = hostingController {
+                install(hosting, in: window)
+            }
         }
-        
+    }
+
+    private func setupAdditionalWindows() {
+        closeAdditionalWindows()
+        let screens = NSScreen.screens
+        guard let primary = NSScreen.main ?? screens.first else { return }
+
+        for screen in screens where screen != primary {
+            let window = NSWindow(
+                contentRect: screen.frame,
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false
+            )
+            configure(window: window, for: screen, assignDelegate: false)
+            let hosting = NSHostingController(rootView: AnyView(makeOverlayView()))
+            install(hosting, in: window)
+            additionalWindows.append(window)
+        }
+    }
+
+    private func closeAdditionalWindows() {
+        additionalWindows.forEach { window in
+            window.orderOut(nil)
+            window.close()
+        }
+        additionalWindows.removeAll()
+    }
+
+    private func configure(window: NSWindow, for screen: NSScreen, assignDelegate: Bool) {
+        window.level = .floating
         window.isOpaque = false
         window.backgroundColor = NSColor.clear
         window.hasShadow = false
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
-        window.delegate = self
-        
-        // Prevent the window from becoming key or main to avoid stealing focus
+        if assignDelegate { window.delegate = self }
         window.isReleasedWhenClosed = false
         window.canBecomeVisibleWithoutLogin = true
-        
-        // Additional properties to prevent focus stealing
         window.hidesOnDeactivate = false
-        
-        // Create the SwiftUI view
-        let overlayView = BreakOverlayView(
+        window.setFrame(screen.frame, display: true)
+    }
+
+    private func makeOverlayView() -> BreakOverlayView {
+        BreakOverlayView(
             breakType: breakType,
             duration: duration,
             controller: self,
             message: selectedMessage,
             customIconSystemName: customIconSystemName,
-            customTitle: nil,
+            customTitle: customTitle,
             onSkip: { self.skipBreak() }
         )
-        
-        hostingController = NSHostingController(rootView: AnyView(overlayView))
-        self.contentViewController = hostingController
-        Logger.debug("BreakOverlayController initialized")
     }
 
-    // Custom break convenience initializer
-    convenience init(customTitle: String, customIconSystemName: String?, duration: TimeInterval, onSkip: @escaping () -> Void, onComplete: @escaping () -> Void) {
-        self.init(breakType: .custom, duration: duration, onSkip: onSkip, onComplete: onComplete)
-        self.setCustom(message: customTitle, iconSystemName: customIconSystemName)
+    private func updateMainWindowContent() {
+        let hosting = NSHostingController(rootView: AnyView(makeOverlayView()))
+        hostingController = hosting
+        if let window = window {
+            install(hosting, in: window)
+        } else {
+            contentViewController = hosting
+        }
     }
 
-    private func setCustom(message: String, iconSystemName: String?) {
-        // Rebuild the SwiftUI view with custom parameters
-        let overlayView = BreakOverlayView(
-            breakType: .custom,
-            duration: duration,
-            controller: self,
-            message: message,
-            customIconSystemName: iconSystemName,
-            customTitle: message,
-            onSkip: { self.skipBreak() }
-        )
-        hostingController = NSHostingController(rootView: AnyView(overlayView))
-        self.contentViewController = hostingController
+    private func refreshAdditionalWindows() {
+        for window in additionalWindows {
+            let hosting = NSHostingController(rootView: AnyView(makeOverlayView()))
+            install(hosting, in: window)
+        }
     }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+
+    private func install(_ hosting: NSHostingController<AnyView>, in window: NSWindow) {
+        window.contentViewController = hosting
+        let bounds = window.contentView?.bounds ?? NSRect(origin: .zero, size: window.frame.size)
+        hosting.view.frame = bounds
+        hosting.view.autoresizingMask = [.width, .height]
     }
+
+    // MARK: - Timer handling
+
+    private func startTimer() {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
+            }
+            let elapsed = Date().timeIntervalSince(self.startTime)
+            let remaining = max(0, self.duration - elapsed)
+            self.displayTimeRemaining = remaining
+            if remaining <= 0 {
+                timer.invalidate()
+                self.finishBreak(completed: true)
+            }
+        }
+    }
+
+    private func skipBreak() {
+        finishBreak(completed: false)
+    }
+
+    private func finishBreak(completed: Bool) {
+        guard completionState == nil else { return }
+        completionState = completed
+        timer?.invalidate()
+        removeKeyMonitors()
+        closeAdditionalWindows()
+        close()
+    }
+
+    // MARK: - NSWindowDelegate
+
+    func windowWillClose(_ notification: Notification) {
+        timer?.invalidate()
+        removeKeyMonitors()
+        closeAdditionalWindows()
+
+        if let completed = completionState {
+            completed ? onComplete() : onSkip()
+        } else {
+            onSkip()
+        }
+
+        restorePreviousApplication()
+        completionState = nil
+    }
+
+    // MARK: - Keyboard handling
+
+    private func setupKeyMonitors() {
+        removeKeyMonitors()
+
+        globalKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, self.shouldHandle(event: event) else { return }
+            self.skipBreak()
+        }
+
+        localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else { return event }
+            if self.shouldHandle(event: event) {
+                self.skipBreak()
+                return nil
+            }
+            return event
+        }
+    }
+
+    private func removeKeyMonitors() {
+        if let monitor = localKeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            localKeyMonitor = nil
+        }
+        if let monitor = globalKeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalKeyMonitor = nil
+        }
+    }
+
+    private func shouldHandle(event: NSEvent) -> Bool {
+        guard !event.isARepeat else { return false }
+        switch event.keyCode {
+        case 49, 53: // Space, Escape
+            return true
+        default:
+            return false
+        }
+    }
+
+    // MARK: - Focus management
+
+    private func capturePreviousApplication() {
+        let current = NSRunningApplication.current
+        if let frontmost = NSWorkspace.shared.frontmostApplication,
+           frontmost.processIdentifier != current.processIdentifier {
+            previousApplication = frontmost
+        } else {
+            previousApplication = nil
+        }
+    }
+
+    private func restorePreviousApplication() {
+        guard let previousApplication,
+              !previousApplication.isTerminated,
+              previousApplication.processIdentifier != NSRunningApplication.current.processIdentifier else {
+            self.previousApplication = nil
+            return
+        }
+
+        if #available(macOS 14, *) {
+            previousApplication.activate()
+        } else {
+            previousApplication.activate(options: [.activateIgnoringOtherApps])
+        }
+        self.previousApplication = nil
+    }
+
+    // MARK: - Utilities
 
     private static func message(for breakType: BreakType) -> String {
         switch breakType {
@@ -121,214 +306,5 @@ class BreakOverlayController: NSWindowController, NSWindowDelegate, ObservableOb
         case .custom:
             return "Break time!"
         }
-    }
-
-    private static func color(fromHex hex: String?) -> Color? {
-        guard let hex = hex?.trimmingCharacters(in: .whitespacesAndNewlines), !hex.isEmpty else { return nil }
-        var cleaned = hex
-        if cleaned.hasPrefix("#") { cleaned.removeFirst() }
-        var int: UInt64 = 0
-        guard Scanner(string: cleaned).scanHexInt64(&int) else { return nil }
-        let a, r, g, b: UInt64
-        switch cleaned.count {
-        case 8:
-            a = (int & 0xff000000) >> 24
-            r = (int & 0x00ff0000) >> 16
-            g = (int & 0x0000ff00) >> 8
-            b = (int & 0x000000ff)
-        case 6:
-            a = 255
-            r = (int & 0x00ff0000) >> 16
-            g = (int & 0x0000ff00) >> 8
-            b = (int & 0x000000ff)
-        default:
-            return nil
-        }
-        return Color(.sRGB, red: Double(r)/255.0, green: Double(g)/255.0, blue: Double(b)/255.0, opacity: Double(a)/255.0)
-    }
-    
-    func show() {
-        Logger.debug("Showing break overlay")
-        // Reset the start time when showing the overlay
-        startTime = Date()
-        hasEnded = false
-        // Ensure the window is properly positioned and sized before showing
-        positionWindow()
-        setupKeyMonitors()
-        capturePreviousApplication()
-        self.showWindow(nil)
-        
-        // Check if we can become main and key
-        if let window = self.window { Logger.debug("Window can become main: \(window.canBecomeMain), key: \(window.canBecomeKey), visible: \(window.isVisible)") }
-        
-        // Bring Lumin to the front so keyboard shortcuts are captured
-        NSApp.activate(ignoringOtherApps: true)
-        
-        // Ensure the window is ordered front but without stealing focus
-        if let window = self.window {
-            Logger.debug("Window frame: \(window.frame)")
-            window.orderFrontRegardless()
-            // Remove makeKeyAndOrderFront to prevent focus stealing
-            // window.makeKeyAndOrderFront(nil)
-            Logger.debug("Window made key and ordered front; visible: \(window.isVisible), main: \(window.isMainWindow), key: \(window.isKeyWindow)")
-        } else {
-            Logger.debug("ERROR - Window is nil")
-        }
-        
-        // Start the timer after showing the window
-        startTimer()
-        Logger.debug("Break overlay shown")
-    }
-    
-    private func positionWindow() {
-        guard let window = self.window else { 
-            print("Lumin: ERROR - Window is nil in positionWindow")
-            return 
-        }
-        
-        // Get the screen information
-        let screen = NSScreen.main ?? NSScreen.screens[0]
-        let screenFrame = screen.frame
-        
-        Logger.debug("Positioning window on screen with frame: \(screenFrame), screen count: \(NSScreen.screens.count), main: \(String(describing: NSScreen.main))")
-        
-        // Position and size the window to cover the entire screen
-        window.setFrame(screenFrame, display: true)
-        
-        // Ensure the window is on the active space
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
-        
-        Logger.debug("Window positioned with frame: \(window.frame)")
-    }
-    
-    private func startTimer() {
-        // Set the initial time remaining
-        displayTimeRemaining = duration
-        Logger.debug("Timer started with initial time remaining: \(displayTimeRemaining)s")
-        
-        // Create a timer that updates the display time remaining based on actual elapsed time
-        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
-            guard let self = self else {
-                timer.invalidate()
-                return
-            }
-            
-            let elapsed = Date().timeIntervalSince(self.startTime)
-            let remaining = max(0, self.duration - elapsed)
-            
-            self.displayTimeRemaining = remaining
-            
-            // If time is up, finish the break as completed
-            if remaining <= 0 {
-                timer.invalidate()
-                self.completeBreak()
-            }
-        }
-    }
-
-    private func skipBreak() {
-        finishBreak(completed: false)
-    }
-
-    private func completeBreak() {
-        finishBreak(completed: true)
-    }
-
-    private func finishBreak(completed: Bool) {
-        guard !hasEnded else { return }
-        hasEnded = true
-        timer?.invalidate()
-        removeKeyMonitors()
-        self.close()
-        if completed {
-            onComplete()
-        } else {
-            onSkip()
-        }
-        restorePreviousApplication()
-    }
-
-    func windowWillClose(_ notification: Notification) {
-        Logger.debug("Break overlay window will close")
-        timer?.invalidate()
-        removeKeyMonitors()
-        if !hasEnded {
-            onSkip()
-            restorePreviousApplication()
-        }
-    }
-    
-    func windowDidBecomeKey(_ notification: Notification) { Logger.debug("Break overlay window became key") }
-    
-    func windowDidBecomeMain(_ notification: Notification) { Logger.debug("Break overlay window became main") }
-    
-    func windowDidExpose(_ notification: Notification) { Logger.debug("Break overlay window exposed") }
-
-    deinit {
-        removeKeyMonitors()
-    }
-
-    private func setupKeyMonitors() {
-        removeKeyMonitors()
-
-        globalKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self = self else { return }
-            if self.shouldHandle(event: event) {
-                self.skipBreak()
-            }
-        }
-
-        localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self = self else { return event }
-            if self.shouldHandle(event: event) {
-                self.skipBreak()
-                return nil
-            }
-            return event
-        }
-    }
-
-    private func removeKeyMonitors() {
-        if let localKeyMonitor {
-            NSEvent.removeMonitor(localKeyMonitor)
-            self.localKeyMonitor = nil
-        }
-        if let globalKeyMonitor {
-            NSEvent.removeMonitor(globalKeyMonitor)
-            self.globalKeyMonitor = nil
-        }
-    }
-
-    private func shouldHandle(event: NSEvent) -> Bool {
-        guard !event.isARepeat else { return false }
-        switch event.keyCode {
-        case 49, 53: // space or escape
-            return true
-        default:
-            return false
-        }
-    }
-
-    private func capturePreviousApplication() {
-        let currentApplication = NSRunningApplication.current
-        if let frontmost = NSWorkspace.shared.frontmostApplication,
-           frontmost.processIdentifier != currentApplication.processIdentifier {
-            previousApplication = frontmost
-        } else {
-            previousApplication = nil
-        }
-    }
-
-    private func restorePreviousApplication() {
-        if let previousApplication,
-           !previousApplication.isTerminated,
-           previousApplication.processIdentifier != NSRunningApplication.current.processIdentifier {
-            if #available(macOS 14, *) {
-                previousApplication.activate()
-            } else {
-                previousApplication.activate(options: [.activateIgnoringOtherApps])
-            }
-        }
-        previousApplication = nil
     }
 }
